@@ -1,4 +1,6 @@
 import os
+import time
+
 from celery import Celery
 from neo4j import GraphDatabase
 
@@ -14,8 +16,6 @@ def process_document_task(document_data: dict):
     Long-running task to process and ingest document into the knowledge graph.
     """
     # Simulate processing time
-    import time
-
     time.sleep(5)  # Simulate heavy computation
 
     # Connect to Neo4j

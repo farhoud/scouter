@@ -1,6 +1,8 @@
 import os
+
 from neo4j import GraphDatabase
-from ..shared.domain_models import SearchResult
+
+from scouter_app.shared.domain_models import SearchResult
 
 
 class SearchService:
