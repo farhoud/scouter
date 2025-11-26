@@ -1,0 +1,16 @@
+from fastapi import FastAPI
+from src.scouter_app.ingestion.api import router as ingestion_router
+from src.scouter_app.agent.api import router as agent_router
+from src.scouter_app.agent.mcp import app as mcp_app
+
+app = FastAPI(
+    title="Project Scouter",
+    description="Rapid assessment and retrieval from knowledge graph",
+)
+
+# Include REST API routers
+app.include_router(ingestion_router)
+app.include_router(agent_router)
+
+# Mount FastMCP for tool access
+app.mount("/mcp", mcp_app)
