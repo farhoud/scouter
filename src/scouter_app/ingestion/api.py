@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 
-from scouter_app.shared.domain_models import DocumentIngestRequest, IngestResponse
 from scouter_app.ingestion.tasks import process_document_task
+from scouter_app.shared.domain_models import DocumentIngestRequest, IngestResponse
 
 router = APIRouter()
 

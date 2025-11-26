@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 
-from scouter_app.shared.domain_models import SearchResult
 from scouter_app.agent.service import SearchService
+from scouter_app.shared.domain_models import SearchResult
 
 router = APIRouter()
 
