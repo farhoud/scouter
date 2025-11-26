@@ -7,13 +7,17 @@ name = "scouter-app"
 version = "0.1.0"
 description = "Project Scouter: Rapid assessment and retrieval from knowledge graph"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
     "fastapi",
     "uvicorn",
     "celery[redis]",
     "fastmcp",
     "neo4j",
+]
+
+[project.optional-dependencies]
+dev = [
     "ruff",
     "watchfiles",
 ]
