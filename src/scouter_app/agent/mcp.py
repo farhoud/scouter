@@ -1,4 +1,5 @@
 from fastmcp import FastMCP
+
 from .service import SearchService
 
 app = FastMCP("Scouter Agent")

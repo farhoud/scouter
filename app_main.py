@@ -1,7 +1,8 @@
 from fastapi import FastAPI
-from src.scouter_app.ingestion.api import router as ingestion_router
+
 from src.scouter_app.agent.api import router as agent_router
 from src.scouter_app.agent.mcp import app as mcp_app
+from src.scouter_app.ingestion.api import router as ingestion_router
 
 app = FastAPI(
     title="Project Scouter",

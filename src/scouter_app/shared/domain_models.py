@@ -5,7 +5,7 @@ class DocumentIngestRequest(BaseModel):
     content: str = Field(..., description="The text content of the document to ingest")
     title: str = Field(..., description="Title of the document")
     metadata: dict = Field(
-        default_factory=dict, description="Additional metadata for the document"
+        default_factory=dict, description="Additional metadata for the document",
     )
 
 
