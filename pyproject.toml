@@ -20,6 +20,10 @@ dependencies = [
 dev = [
     "ruff",
     "watchfiles",
+    "deepeval",
+    "datasets",
+    "requests",
+    "pdfplumber",
 ]
 
 [tool.ruff]
