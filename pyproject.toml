@@ -24,6 +24,7 @@ dev = [
     "datasets",
     "requests",
     "pdfplumber",
+    "pytest",
 ]
 
 [tool.ruff]
