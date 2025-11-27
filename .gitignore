@@ -28,3 +28,6 @@ MANIFEST
 
 # Ruff cache
 .ruff_cache/
+
+# Cache
+.cache/
