@@ -1,15 +1,14 @@
 import os
 
-import openai
 import requests
+from scouter_app.config.llm import get_chatbot_client
 
 HTTP_OK = 200
 
-# Set OpenRouter API key
-openai.api_key = os.getenv("OPENROUTER_API_KEY")
-openai.api_base = "https://openrouter.ai/api/v1"
-
 SCOUTER_SEARCH_URL = "http://localhost:8000/v1/search"
+
+# Get LLM client
+llm = get_chatbot_client()
 
 
 def retrieve_context(query: str) -> str:
@@ -39,12 +38,14 @@ def chat_with_rag():
         # Build prompt
         prompt = f"Context: {context}\n\nQuestion: {user_input}\nAnswer:"
 
-        # Call OpenRouter
-        openai.ChatCompletion.create(
+        # Call LLM
+        response = llm.chat.completions.create(
             model="openai/gpt-3.5-turbo",  # Or other via OpenRouter
             messages=[{"role": "user", "content": prompt}],
             max_tokens=200,
         )
+        answer = response.choices[0].message.content
+        print(f"Bot: {answer}")
 
 
 if __name__ == "__main__":
