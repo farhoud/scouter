@@ -1,8 +1,8 @@
-import pytest
-import requests
 import subprocess
 import time
-from datasets import load_dataset
+
+import pytest
+import requests
 from deepeval.metrics import ContextualRelevancyMetric
 from deepeval.test_case import LLMTestCase
 
@@ -34,7 +34,7 @@ def seed_database():
 def test_retrieval_relevancy(query):
     metric = ContextualRelevancyMetric()
 
-    response = requests.get(API_URL, params={"query": query})
+    response = requests.get(API_URL, params={"query": query}, timeout=30)
     assert response.status_code == 200
     results = response.json()
     context = "\n".join([r["content"] for r in results])

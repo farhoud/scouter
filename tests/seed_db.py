@@ -1,9 +1,7 @@
-import os
-import requests
-import pdfplumber
-from datasets import load_dataset
 from pathlib import Path
-import json
+
+import pdfplumber
+import requests
 
 CACHE_DIR = Path(".cache/pdfs")
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
@@ -17,9 +15,9 @@ def download_pdf(url, filename):
         print(f"Using cached {filename}")
         return cache_path
     print(f"Downloading {filename}")
-    response = requests.get(url)
+    response = requests.get(url, timeout=30)
     response.raise_for_status()
-    with open(cache_path, "wb") as f:
+    with cache_path.open("wb") as f:
         f.write(response.content)
     return cache_path
 
@@ -38,20 +36,16 @@ def ingest_document(title, content):
         "content": content,
         "metadata": {"source": "open-rag-bench"},
     }
-    response = requests.post(API_URL, json=data)
+    response = requests.post(API_URL, json=data, timeout=30)
     response.raise_for_status()
     print(f"Ingested {title}")
 
 
 def seed_db(num_docs=5):
-    # Load dataset info
-    dataset = load_dataset("vectara/open_ragbench", split="train")
-    # Assuming pdf_urls is available, but since it's separate, perhaps hardcode or load from HF
-    # For simplicity, use sample URLs or assume
-    # Actually, the dataset may not have pdf_urls directly, but from README, pdf_urls.json
-    # Let's download the pdf_urls.json from HF
+    # Download pdf_urls.json from HF
     urls_response = requests.get(
-        "https://huggingface.co/datasets/vectara/open_ragbench/resolve/main/pdf_urls.json"
+        "https://huggingface.co/datasets/vectara/open_ragbench/resolve/main/pdf_urls.json",
+        timeout=30,
     )
     pdf_urls = urls_response.json()
 

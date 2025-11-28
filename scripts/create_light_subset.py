@@ -19,8 +19,6 @@ def create_light_subset(
     (out / "corpus").mkdir(parents=True, exist_ok=True)
     (out / "qa").mkdir(parents=True, exist_ok=True)
 
-    print(f"Creating light subset with {total_docs} documents (4:6 ratio)...")
-
     # 1. Load only the tiny metadata files we need
     pdf_urls = requests.get(f"{BASE}/pdf/arxiv/pdf_urls.json", timeout=30).json()
     paper_to_url = {x["paper_id"]: x["url"] for x in pdf_urls}
@@ -47,8 +45,6 @@ def create_light_subset(
     selected_neg = random.sample(negative_papers, num_neg)
     selected_all = selected_pos + selected_neg
 
-    print(f"→ {num_pos} positive + {num_neg} hard-negative documents selected")
-
     # 4. Find queries that belong to our selected positive documents
     relevant_qids = set()
     for qid, rel in qrels.items():
@@ -56,10 +52,8 @@ def create_light_subset(
         if any(d["doc_id"] in selected_pos for d in docs):
             relevant_qids.add(qid)
 
-    print(f"→ {len(relevant_qids)} queries kept")
-
     # 5. Download ONLY the files we actually need
-    print("Downloading only the selected files...")
+
     for paper_id in selected_all:
         # Corpus JSON (tiny, always useful)
         url = f"{BASE}/pdf/arxiv/corpus/{paper_id}.json"
@@ -92,6 +86,3 @@ def create_light_subset(
         f"Preserves official 4:6 ratio\n"
         f"No full download required!",
     )
-
-    print(f"\nDone! Your light subset is ready → {out.resolve()}")
-    print("Size: ~150-300 MB (perfect for any laptop)")
