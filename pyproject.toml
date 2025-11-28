@@ -25,6 +25,7 @@ dev = [
     "requests",
     "pdfplumber",
     "pytest",
+    "openai",
 ]
 
 [tool.ruff]

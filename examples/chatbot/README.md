@@ -6,7 +6,7 @@ A simple CLI chatbot that uses Scouter for retrieval-augmented generation (RAG) 
 
 1. Install dependencies:
    ```
-   pip install -r requirements.txt
+   uv pip install -e .[dev]
    ```
 
 2. Set environment variables:
