@@ -1,7 +1,8 @@
 import json
 import random
-import requests
 from pathlib import Path
+
+import requests
 
 random.seed(42)
 BASE = "https://huggingface.co/datasets/vectara/open_ragbench/resolve/main/official"
@@ -10,6 +11,7 @@ BASE = "https://huggingface.co/datasets/vectara/open_ragbench/resolve/main/offic
 def create_light_subset(
     total_docs: int = 20,  # e.g. 20 → 8 positive + 12 hard-negative
     out_folder: str = "my_light_ragbench",
+    *,  # keyword-only args
     download_pdf: bool = True,
 ):
     out = Path(out_folder)
@@ -20,13 +22,13 @@ def create_light_subset(
     print(f"Creating light subset with {total_docs} documents (4:6 ratio)...")
 
     # 1. Load only the tiny metadata files we need
-    pdf_urls = requests.get(f"{BASE}/pdf/arxiv/pdf_urls.json").json()
+    pdf_urls = requests.get(f"{BASE}/pdf/arxiv/pdf_urls.json", timeout=30).json()
     paper_to_url = {x["paper_id"]: x["url"] for x in pdf_urls}
     all_papers = list(paper_to_url.keys())
 
-    qrels = requests.get(f"{BASE}/qa/arxiv/qrels.json").json()
-    queries_full = requests.get(f"{BASE}/qa/arxiv/queries.json").json()
-    answers_full = requests.get(f"{BASE}/qa/arxiv/answers.json").json()
+    qrels = requests.get(f"{BASE}/qa/arxiv/qrels.json", timeout=30).json()
+    queries_full = requests.get(f"{BASE}/qa/arxiv/queries.json", timeout=30).json()
+    answers_full = requests.get(f"{BASE}/qa/arxiv/answers.json", timeout=30).json()
 
     # 2. Find the official 400 positive papers
     positive_papers = {
@@ -61,13 +63,14 @@ def create_light_subset(
     for paper_id in selected_all:
         # Corpus JSON (tiny, always useful)
         url = f"{BASE}/pdf/arxiv/corpus/{paper_id}.json"
-        (out / "corpus" / f"{paper_id}.json").write_bytes(requests.get(url).content)
+        (out / "corpus" / f"{paper_id}.json").write_bytes(
+            requests.get(url, timeout=30).content,
+        )
 
-        # PDF (optional)
         if download_pdf:
             pdf_url = paper_to_url[paper_id]
             (out / "pdfs" / f"{paper_id}.pdf").write_bytes(
-                requests.get(pdf_url).content
+                requests.get(pdf_url, timeout=30).content,
             )
 
     # 6. Save filtered QA files
@@ -87,8 +90,8 @@ def create_light_subset(
         f"Hard negatives  : {num_neg}\n"
         f"Queries         : {len(relevant_qids)}\n"
         f"Preserves official 4:6 ratio\n"
-        f"No full download required!"
+        f"No full download required!",
     )
 
     print(f"\nDone! Your light subset is ready → {out.resolve()}")
-    print(f"Size: ~150–300 MB (perfect for any laptop)")
+    print("Size: ~150-300 MB (perfect for any laptop)")
