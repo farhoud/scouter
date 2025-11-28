@@ -17,3 +17,19 @@ Rapid assessment and retrieval from knowledge graph.
 Or use Docker: `docker-compose up`
 
 API docs at http://localhost:8000/docs
+
+## Development Workflow
+
+- **Eval Scripts**: Use `scripts/run_eval.py` for configurable evals or `scripts/watch_eval.py` for auto-evals on code changes.
+- **Data Prep**: Run `scripts/create_light_subset.py` to generate light datasets for testing.
+- **Linting**: `uv run ruff check` and fix issues.
+
+## Examples
+
+- **Chatbot**: See `examples/chatbot/` for a RAG chatbot using OpenRouter.
+
+## Testing
+
+- Run `pytest` for unit tests.
+- Use `tests/test_eval.py` for full retrieval evals.
+- `tests/test_mini_eval.py` for fast mini-tests.

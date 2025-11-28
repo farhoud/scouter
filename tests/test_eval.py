@@ -1,4 +1,5 @@
 import subprocess
+import sys
 import time
 
 import pytest
@@ -9,6 +10,8 @@ from deepeval.test_case import LLMTestCase
 # Our API endpoint
 API_URL = "http://localhost:8000/v1/search"
 INGEST_API = "http://localhost:8000/v1/ingest"
+HTTP_OK = 200
+SCORE_THRESHOLD = 0.5
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -17,7 +20,7 @@ def seed_database():
     # For simplicity, assume running
 
     # Run seed_db.py
-    subprocess.run(["python", "tests/seed_db.py"], check=True)
+    subprocess.run([sys.executable, "tests/seed_db.py"], check=True)
     # Wait for ingestion to complete
     time.sleep(10)  # Adjust as needed
 
@@ -35,7 +38,7 @@ def test_retrieval_relevancy(query):
     metric = ContextualRelevancyMetric()
 
     response = requests.get(API_URL, params={"query": query}, timeout=30)
-    assert response.status_code == 200
+    assert response.status_code == HTTP_OK
     results = response.json()
     context = "\n".join([r["content"] for r in results])
 
@@ -46,7 +49,5 @@ def test_retrieval_relevancy(query):
     )
 
     metric.measure(test_case)
-    print(f"Query: {query}")
-    print(f"Score: {metric.score}")
-    print(f"Reason: {metric.reason}")
-    assert metric.score > 0.5  # Example threshold
+
+    assert metric.score > SCORE_THRESHOLD  # Example threshold
