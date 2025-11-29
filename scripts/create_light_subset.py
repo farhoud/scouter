@@ -5,7 +5,7 @@ from pathlib import Path
 import requests
 
 random.seed(42)
-BASE = "https://huggingface.co/datasets/vectara/open_ragbench/resolve/main/official"
+BASE = "https://huggingface.co/datasets/vectara/open_ragbench/raw/main"
 
 
 def create_light_subset(
@@ -21,12 +21,12 @@ def create_light_subset(
 
     # 1. Load only the tiny metadata files we need
     pdf_urls = requests.get(f"{BASE}/pdf/arxiv/pdf_urls.json", timeout=30).json()
-    paper_to_url = {x["paper_id"]: x["url"] for x in pdf_urls}
-    all_papers = list(paper_to_url.keys())
+    paper_to_url = pdf_urls.values()
+    all_papers = list(pdf_urls.keys())
 
-    qrels = requests.get(f"{BASE}/qa/arxiv/qrels.json", timeout=30).json()
-    queries_full = requests.get(f"{BASE}/qa/arxiv/queries.json", timeout=30).json()
-    answers_full = requests.get(f"{BASE}/qa/arxiv/answers.json", timeout=30).json()
+    qrels = requests.get(f"{BASE}/pdf/arxiv/qrels.json", timeout=30).json()
+    queries_full = requests.get(f"{BASE}/pdf/arxiv/queries.json", timeout=30).json()
+    answers_full = requests.get(f"{BASE}/pdf/arxiv/answers.json", timeout=30).json()
 
     # 2. Find the official 400 positive papers
     positive_papers = {
@@ -62,7 +62,7 @@ def create_light_subset(
         )
 
         if download_pdf:
-            pdf_url = paper_to_url[paper_id]
+            pdf_url = pdf_urls[paper_id]
             (out / "pdfs" / f"{paper_id}.pdf").write_bytes(
                 requests.get(pdf_url, timeout=30).content,
             )
@@ -86,3 +86,5 @@ def create_light_subset(
         f"Preserves official 4:6 ratio\n"
         f"No full download required!",
     )
+
+    return subset_q, subset_a, subset_r

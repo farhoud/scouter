@@ -14,7 +14,7 @@ dependencies = [
     "celery[redis]",
     "fastmcp",
     "neo4j",
-    "neo4j-graphrag",
+    "neo4j-graphrag[openai,sentence-transformers]",
     "pydantic",
     "pydantic-settings",
 ]
@@ -22,14 +22,17 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "ruff",
-    "watchfiles",
     "deepeval",
     "datasets",
     "requests",
     "pdfplumber",
     "pytest",
+    "pytest-watcher",
     "openai",
 ]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
 
 [tool.ruff]
 extend = "ruff.toml"

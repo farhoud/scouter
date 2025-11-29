@@ -20,14 +20,14 @@ class SearchService:
             result = session.run(
                 """
                 MATCH (d:Document)
-                WHERE d.content CONTAINS $query OR d.title CONTAINS $query
+                WHERE d.content CONTAINS $search_query OR d.title CONTAINS $search_query
                 RETURN d.title as title, d.content as content, id(d) as node_id
                 LIMIT $limit
                 """,
-                query=query,
+                search_query=query,
                 limit=limit,
             )
-            records = result.records()
+            records = [record for record in result]
             return [
                 SearchResult(
                     content=f"{record['title']}: {record['content'][:200]}...",

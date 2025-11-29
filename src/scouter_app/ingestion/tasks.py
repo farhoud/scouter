@@ -1,5 +1,6 @@
+import asyncio
 import os
-import time
+from typing import Optional
 
 from celery import Celery
 
@@ -12,18 +13,32 @@ app = Celery(
 
 
 @app.task
-def process_document_task(document_data: dict):
+def process_document_task(task_data: dict):
     """
-    Long-running task to process and ingest document into the knowledge graph.
+    Long-running task to process PDF or text into the knowledge graph.
     """
-    # Simulate processing time
-    time.sleep(5)  # Simulate heavy computation
 
-    service = IngestionService()
-    result = service.ingest_document(
-        title=document_data["title"],
-        content=document_data["content"],
-        metadata=document_data["metadata"],
-    )
-    service.close()
-    return result
+    async def run_async():
+        service = IngestionService()
+        try:
+            file_path = task_data.get("file_path")
+            text = task_data.get("text")
+            metadata = task_data.get("metadata", {})
+            result = await service.process_document(
+                file_path=file_path, text=text, metadata=metadata
+            )
+            return result
+        finally:
+            service.close()
+
+    # Run the async function in the event loop
+    loop = asyncio.get_event_loop()
+    if loop.is_running():
+        # If there's already a running loop, use asyncio.create_task or similar
+        import concurrent.futures
+
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            future = executor.submit(asyncio.run, run_async())
+            return future.result()
+    else:
+        return asyncio.run(run_async())

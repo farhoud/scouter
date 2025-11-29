@@ -1,8 +1,14 @@
+import logging
+
 from fastapi import FastAPI
 
 from src.scouter_app.agent.api import router as agent_router
 from src.scouter_app.agent.mcp import app as mcp_app
+from src.scouter_app.config.llm import get_client_config
 from src.scouter_app.ingestion.api import router as ingestion_router
+
+config = get_client_config()
+logging.info(f"Starting Scouter in {config.env} environment")
 
 app = FastAPI(
     title="Project Scouter",

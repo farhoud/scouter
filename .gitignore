@@ -31,3 +31,6 @@ MANIFEST
 
 # Cache
 .cache/
+.eval_cache
+.eval_subset/
+.eval_cache
