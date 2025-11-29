@@ -14,6 +14,7 @@ dependencies = [
     "celery[redis]",
     "fastmcp",
     "neo4j",
+    "neo4j-graphrag",
     "pydantic",
     "pydantic-settings",
 ]
