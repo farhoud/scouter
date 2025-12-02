@@ -1,6 +1,5 @@
 import asyncio
 import os
-from typing import Optional
 
 from celery import Celery
 
@@ -24,10 +23,11 @@ def process_document_task(task_data: dict):
             file_path = task_data.get("file_path")
             text = task_data.get("text")
             metadata = task_data.get("metadata", {})
-            result = await service.process_document(
-                file_path=file_path, text=text, metadata=metadata
+            return await service.process_document(
+                file_path=file_path,
+                text=text,
+                metadata=metadata,
             )
-            return result
         finally:
             service.close()
 

@@ -36,3 +36,8 @@ asyncio_mode = "auto"
 
 [tool.ruff]
 extend = "ruff.toml"
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.5.0",
+]

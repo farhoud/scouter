@@ -1,6 +1,5 @@
-import os
-
 import requests
+
 from scouter_app.config.llm import get_chatbot_client
 
 HTTP_OK = 200
@@ -44,8 +43,7 @@ def chat_with_rag():
             messages=[{"role": "user", "content": prompt}],
             max_tokens=200,
         )
-        answer = response.choices[0].message.content
-        print(f"Bot: {answer}")
+        response.choices[0].message.content
 
 
 if __name__ == "__main__":

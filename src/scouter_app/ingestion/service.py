@@ -1,9 +1,8 @@
 import os
-from typing import Optional
 
-from neo4j import GraphDatabase
 from neo4j_graphrag.experimental.pipeline.kg_builder import SimpleKGPipeline
 
+from neo4j import GraphDatabase
 from scouter_app.config.llm import get_neo4j_embedder, get_neo4j_llm
 
 
@@ -19,13 +18,15 @@ class IngestionService:
 
     async def process_document(
         self,
-        file_path: Optional[str] = None,
-        text: Optional[str] = None,
-        metadata: dict = {},
+        file_path: str | None = None,
+        text: str | None = None,
+        metadata: dict | None = None,
     ):
         """
         Process a PDF file or text into the knowledge graph using SimpleKGPipeline.
         """
+        if metadata is None:
+            metadata = {}
         try:
             from_pdf = file_path is not None
             kg_builder = SimpleKGPipeline(
@@ -36,7 +37,8 @@ class IngestionService:
             )
             if from_pdf:
                 await kg_builder.run_async(
-                    file_path=file_path, document_metadata=metadata
+                    file_path=file_path,
+                    document_metadata=metadata,
                 )
             else:
                 await kg_builder.run_async(text=text, document_metadata=metadata)

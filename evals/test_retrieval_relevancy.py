@@ -1,17 +1,14 @@
-import json
-from pathlib import Path
-
-from neo4j._work import query
-import pytest
 from deepeval.metrics import ContextualRelevancyMetric
 from deepeval.test_case import LLMTestCase
 
 from scouter_app.agent.service import SearchService
 
+THRESHOLD = 0.5
+
 
 def test_retrieval_relevancy(dataset):
     service = SearchService()
-    a, q, r = dataset
+    _a, q, _r = dataset
 
     try:
         results = service.search(q[0])
@@ -20,12 +17,13 @@ def test_retrieval_relevancy(dataset):
         metric = ContextualRelevancyMetric()
         test_case = LLMTestCase(
             input=q[0],
-            actual_output="",  # Not used
+            actual_output="",
             retrieval_context=[context],
         )
 
         metric.measure(test_case)
 
-        assert metric.score is not None and metric.score > 0.5  # Example threshold
+        assert metric.score is not None
+        assert metric.score > THRESHOLD
     finally:
         service.close()

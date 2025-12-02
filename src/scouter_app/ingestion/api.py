@@ -1,6 +1,5 @@
 import json
 import tempfile
-from pathlib import Path
 
 from fastapi import APIRouter, File, Form, UploadFile
 
@@ -13,7 +12,9 @@ router = APIRouter()
 
 @router.post("/v1/ingest", response_model=IngestResponse, status_code=202)
 async def ingest_document(
-    file: UploadFile = File(None), text: str = Form(None), metadata: str = Form("{}")
+    file: UploadFile = File(None),
+    text: str = Form(None),
+    metadata: str = Form("{}"),
 ):
     """
     Ingest a PDF file or raw text into the knowledge graph asynchronously.
@@ -27,7 +28,8 @@ async def ingest_document(
 
     # Validate input
     if (file is None and text is None) or (file is not None and text is not None):
-        raise ValueError("Exactly one of 'file' or 'text' must be provided")
+        msg = "Exactly one of 'file' or 'text' must be provided"
+        raise ValueError(msg)
 
     task_data = {"metadata": metadata_dict}
 

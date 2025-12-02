@@ -1,7 +1,6 @@
 import os
 
 from neo4j import GraphDatabase
-
 from scouter_app.shared.domain_models import SearchResult
 
 
@@ -27,7 +26,7 @@ class SearchService:
                 search_query=query,
                 limit=limit,
             )
-            records = [record for record in result]
+            records = list(result)
             return [
                 SearchResult(
                     content=f"{record['title']}: {record['content'][:200]}...",

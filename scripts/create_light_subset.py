@@ -21,7 +21,7 @@ def create_light_subset(
 
     # 1. Load only the tiny metadata files we need
     pdf_urls = requests.get(f"{BASE}/pdf/arxiv/pdf_urls.json", timeout=30).json()
-    paper_to_url = pdf_urls.values()
+    pdf_urls.values()
     all_papers = list(pdf_urls.keys())
 
     qrels = requests.get(f"{BASE}/pdf/arxiv/qrels.json", timeout=30).json()

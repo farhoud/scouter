@@ -25,9 +25,11 @@ class ClientConfig(BaseSettings):
         else:
             self.api_key = self.api_key or os.getenv("OPENAI_API_KEY")
         if not self.api_key:
-            raise ValueError(f"API key required for provider {self.provider}")
+            msg = f"API key required for provider {self.provider}"
+            raise ValueError(msg)
         if self.env not in ["development", "production", "test"]:
-            raise ValueError("env must be one of: development, production, test")
+            msg = "env must be one of: development, production, test"
+            raise ValueError(msg)
         return self
 
     def __init__(self, **data):

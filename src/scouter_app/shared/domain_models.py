@@ -1,15 +1,15 @@
-from typing import Optional
-
 from fastapi import UploadFile
 from pydantic import BaseModel, Field, model_validator
 
 
 class DocumentIngestRequest(BaseModel):
-    file: Optional[UploadFile] = Field(
-        None, description="PDF file to ingest (mutually exclusive with text)"
+    file: UploadFile | None = Field(
+        None,
+        description="PDF file to ingest (mutually exclusive with text)",
     )
-    text: Optional[str] = Field(
-        None, description="Raw text content to ingest (mutually exclusive with file)"
+    text: str | None = Field(
+        None,
+        description="Raw text content to ingest (mutually exclusive with file)",
     )
     metadata: dict = Field(
         default_factory=dict,
@@ -19,15 +19,18 @@ class DocumentIngestRequest(BaseModel):
     @model_validator(mode="after")
     def validate_input(self):
         if self.file is not None and self.text is not None:
+            msg = "Exactly one of 'file' or 'text' must be provided, not both"
             raise ValueError(
-                "Exactly one of 'file' or 'text' must be provided, not both"
+                msg,
             )
         if self.file is None and self.text is None:
-            raise ValueError("Exactly one of 'file' or 'text' must be provided")
+            msg = "Exactly one of 'file' or 'text' must be provided"
+            raise ValueError(msg)
         if self.file is not None:
             filename = self.file.filename
             if not filename or not filename.lower().endswith(".pdf"):
-                raise ValueError("Only PDF files are supported")
+                msg = "Only PDF files are supported"
+                raise ValueError(msg)
         return self
 
 

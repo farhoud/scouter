@@ -1,5 +1,6 @@
-import pytest
 from unittest.mock import AsyncMock, MagicMock
+
+import pytest
 
 from scouter_app.ingestion.service import IngestionService
 
@@ -25,12 +26,14 @@ async def test_process_document_text():
 
     try:
         result = await service.process_document(
-            text="sample text", metadata={"key": "value"}
+            text="sample text",
+            metadata={"key": "value"},
         )
         assert result["status"] == "processed"
         assert result["type"] == "text"
         mock_pipeline.run_async.assert_called_once_with(
-            text="sample text", document_metadata={"key": "value"}
+            text="sample text",
+            document_metadata={"key": "value"},
         )
     finally:
         svc.SimpleKGPipeline = original_pipeline
@@ -58,7 +61,8 @@ async def test_process_document_pdf():
         assert result["status"] == "processed"
         assert result["type"] == "pdf"
         mock_pipeline.run_async.assert_called_once_with(
-            file_path="/tmp/test.pdf", document_metadata={}
+            file_path="/tmp/test.pdf",
+            document_metadata={},
         )
     finally:
         svc.SimpleKGPipeline = original_pipeline
