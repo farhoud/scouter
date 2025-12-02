@@ -89,6 +89,12 @@ uv run ruff format .
 
 # Pre-commit hooks (auto-installed)
 git commit  # Hooks run automatically
+
+# Development workflow - watch for changes in src and evals
+make eval-watch
+
+# Development workflow with verbose logs
+LOGS=1 make eval-watch
 ```
 
 ### Testing
@@ -101,9 +107,6 @@ SCOUTER_FORCE_INGEST=1 make evals
 
 # Run unit tests
 pytest
-
-# Watch mode for evals
-uv run python -m ptw evals/
 ```
 
 ### Data Caching
