@@ -1,12 +1,18 @@
+"""Tests for IngestionService."""
+
+import tempfile
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+import scouter_app.ingestion.service as svc
 from scouter_app.ingestion.service import IngestionService
 
 
 @pytest.mark.asyncio
-async def test_process_document_text():
+async def test_process_document_text() -> None:
+    """Test processing text documents."""
     # Mock the driver and pipeline
     mock_driver = MagicMock()
     mock_llm = MagicMock()
@@ -19,8 +25,6 @@ async def test_process_document_text():
     service.embedder = mock_embedder
 
     # Mock SimpleKGPipeline
-    import scouter_app.ingestion.service as svc
-
     original_pipeline = svc.SimpleKGPipeline
     svc.SimpleKGPipeline = MagicMock(return_value=mock_pipeline)
 
@@ -40,7 +44,8 @@ async def test_process_document_text():
 
 
 @pytest.mark.asyncio
-async def test_process_document_pdf():
+async def test_process_document_pdf() -> None:
+    """Test processing PDF documents."""
     mock_driver = MagicMock()
     mock_llm = MagicMock()
     mock_embedder = MagicMock()
@@ -51,18 +56,22 @@ async def test_process_document_pdf():
     service.llm = mock_llm
     service.embedder = mock_embedder
 
-    import scouter_app.ingestion.service as svc
-
     original_pipeline = svc.SimpleKGPipeline
     svc.SimpleKGPipeline = MagicMock(return_value=mock_pipeline)
 
+    temp_path = None
     try:
-        result = await service.process_document(file_path="/tmp/test.pdf", metadata={})
+        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as temp_file:
+            temp_path = temp_file.name
+
+        result = await service.process_document(file_path=temp_path, metadata={})
         assert result["status"] == "processed"
         assert result["type"] == "pdf"
         mock_pipeline.run_async.assert_called_once_with(
-            file_path="/tmp/test.pdf",
+            file_path=temp_path,
             document_metadata={},
         )
     finally:
         svc.SimpleKGPipeline = original_pipeline
+        if temp_path:
+            Path(temp_path).unlink(missing_ok=True)

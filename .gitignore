@@ -34,3 +34,7 @@ MANIFEST
 .eval_cache
 .eval_subset/
 .eval_cache
+
+
+# neo4j
+neo4j/

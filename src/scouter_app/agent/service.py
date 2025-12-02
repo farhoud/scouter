@@ -12,9 +12,7 @@ class SearchService:
         self.driver = GraphDatabase.driver(uri, auth=(user, password))
 
     def search(self, query: str, limit: int = 10) -> list[SearchResult]:
-        """
-        Search the knowledge graph for relevant content.
-        """
+        """Search the knowledge graph for relevant content."""
         with self.driver.session() as session:
             result = session.run(
                 """

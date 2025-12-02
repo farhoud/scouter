@@ -1,3 +1,5 @@
+"""Main FastAPI application for Project Scouter."""
+
 import logging
 
 from fastapi import FastAPI
@@ -7,10 +9,12 @@ from src.scouter_app.agent.mcp import app as mcp_app
 from src.scouter_app.config.llm import get_client_config
 from src.scouter_app.ingestion.api import router as ingestion_router
 
-config = get_client_config()
-logging.info(f"Starting Scouter in {config.env} environment")
+logger = logging.getLogger(__name__)
 
-app = FastAPI(
+config = get_client_config()
+logger.info("Starting Scouter in %s environment", config.env)
+
+app: FastAPI = FastAPI(
     title="Project Scouter",
     description="Rapid assessment and retrieval from knowledge graph",
 )
@@ -20,4 +24,4 @@ app.include_router(ingestion_router)
 app.include_router(agent_router)
 
 # Mount FastMCP for tool access
-app.mount("/mcp", mcp_app)
+app.mount("/mcp", mcp_app)  # type: ignore[arg-type]

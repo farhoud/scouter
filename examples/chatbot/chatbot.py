@@ -1,3 +1,5 @@
+"""CLI chatbot with RAG using Scouter + OpenRouter."""
+
 import requests
 
 from scouter_app.config.llm import get_chatbot_client
@@ -11,8 +13,13 @@ llm = get_chatbot_client()
 
 
 def retrieve_context(query: str) -> str:
-    """
-    Retrieve context from Scouter.
+    """Retrieve context from Scouter.
+
+    Args:
+        query: Search query to retrieve context for.
+
+    Returns:
+        Retrieved context as a string, or error message.
     """
     response = requests.get(SCOUTER_SEARCH_URL, params={"query": query}, timeout=30)
     if response.status_code == HTTP_OK:
@@ -21,11 +28,8 @@ def retrieve_context(query: str) -> str:
     return "No context retrieved."
 
 
-def chat_with_rag():
-    """
-    CLI chatbot with RAG using Scouter + OpenRouter.
-    """
-
+def chat_with_rag() -> None:
+    """CLI chatbot with RAG using Scouter + OpenRouter."""
     while True:
         user_input = input("You: ")
         if user_input.lower() == "exit":
@@ -43,7 +47,7 @@ def chat_with_rag():
             messages=[{"role": "user", "content": prompt}],
             max_tokens=200,
         )
-        response.choices[0].message.content
+        print(response.choices[0].message.content)  # noqa: T201
 
 
 if __name__ == "__main__":

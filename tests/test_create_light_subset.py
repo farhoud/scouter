@@ -1,4 +1,7 @@
+"""Tests for create_light_subset script."""
+
 import json
+from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
@@ -8,6 +11,7 @@ from scripts.create_light_subset import create_light_subset
 
 @pytest.fixture
 def mock_requests_get():
+    """Mock requests.get for testing."""
     with patch("scripts.create_light_subset.requests.get") as mock_get:
         # Mock pdf_urls.json
         mock_pdf_urls = Mock()
@@ -41,9 +45,15 @@ def mock_requests_get():
         yield mock_get
 
 
-def test_create_light_subset(tmp_path, mock_requests_get):
+def test_create_light_subset(tmp_path: Path, mock_requests_get: Mock) -> None:
+    """Test create_light_subset function with mocked requests."""
+    expected_docs = 3
     out_folder = str(tmp_path / "light_subset")
-    create_light_subset(total_docs=3, out_folder=out_folder, download_pdf=False)
+    create_light_subset(
+        total_docs=expected_docs,
+        out_folder=out_folder,
+        download_pdf=False,
+    )
 
     # Check directories created
     assert (tmp_path / "light_subset" / "pdfs").exists()
@@ -53,9 +63,9 @@ def test_create_light_subset(tmp_path, mock_requests_get):
     # Check corpus files
     corpus_dir = tmp_path / "light_subset" / "corpus"
     corpus_files = list(corpus_dir.glob("*.json"))
-    assert len(corpus_files) == 3
+    assert len(corpus_files) == expected_docs
     assert any("paper1.json" in str(f) for f in corpus_files)
-    with open(corpus_dir / "paper1.json", "rb") as f:
+    with (corpus_dir / "paper1.json").open("rb") as f:
         assert f.read() == b"corpus1"
 
     # Check qa files
@@ -71,18 +81,18 @@ def test_create_light_subset(tmp_path, mock_requests_get):
     # Check info.txt
     info = (tmp_path / "light_subset" / "info.txt").read_text()
     assert "Light Open-RAG-Bench subset" in info
-    assert "Total documents : 3" in info
+    assert f"Total documents : {expected_docs}" in info
 
     # Check that the correct URLs were called
-    BASE = "https://huggingface.co/datasets/vectara/open_ragbench/raw/main/official"
+    base_url = "https://huggingface.co/datasets/vectara/open_ragbench/raw/main/official"
     expected_urls = [
-        f"{BASE}/pdf/arxiv/pdf_urls.json",
-        f"{BASE}/qa/arxiv/qrels.json",
-        f"{BASE}/qa/arxiv/queries.json",
-        f"{BASE}/qa/arxiv/answers.json",
-        f"{BASE}/pdf/arxiv/corpus/paper1.json",
-        f"{BASE}/pdf/arxiv/corpus/paper2.json",
-        f"{BASE}/pdf/arxiv/corpus/paper3.json",
+        f"{base_url}/pdf/arxiv/pdf_urls.json",
+        f"{base_url}/qa/arxiv/qrels.json",
+        f"{base_url}/qa/arxiv/queries.json",
+        f"{base_url}/qa/arxiv/answers.json",
+        f"{base_url}/pdf/arxiv/corpus/paper1.json",
+        f"{base_url}/pdf/arxiv/corpus/paper2.json",
+        f"{base_url}/pdf/arxiv/corpus/paper3.json",
     ]
     called_urls = [call[0][0] for call in mock_requests_get.call_args_list]
     assert called_urls == expected_urls

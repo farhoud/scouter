@@ -1,7 +1,9 @@
+"""API endpoints for document ingestion."""
+
 import json
 import tempfile
 
-from fastapi import APIRouter, File, Form, UploadFile
+from fastapi import APIRouter, Form, UploadFile
 
 from scouter_app.config.llm import get_client_config
 from scouter_app.ingestion.tasks import process_document_task
@@ -12,13 +14,24 @@ router = APIRouter()
 
 @router.post("/v1/ingest", response_model=IngestResponse, status_code=202)
 async def ingest_document(
-    file: UploadFile = File(None),
-    text: str = Form(None),
+    file: UploadFile | None = None,
+    text: str | None = Form(None),
     metadata: str = Form("{}"),
-):
-    """
-    Ingest a PDF file or raw text into the knowledge graph asynchronously.
+) -> IngestResponse:
+    """Ingest a PDF file or raw text into the knowledge graph asynchronously.
+
     Provide either 'file' (PDF) or 'text', not both.
+
+    Args:
+        file: PDF file to ingest.
+        text: Raw text content to ingest.
+        metadata: JSON string containing metadata.
+
+    Returns:
+        IngestResponse with task ID and status.
+
+    Raises:
+        ValueError: If input validation fails.
     """
     # Parse metadata
     try:

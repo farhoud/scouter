@@ -9,8 +9,7 @@ service = SearchService()
 
 @app.tool()
 def search_knowledge_graph(query: str, limit: int = 10) -> str:
-    """
-    Search the knowledge graph for information related to the query.
+    """Search the knowledge graph for information related to the query.
 
     This tool allows LLMs to retrieve relevant documents and knowledge from the Scouter knowledge graph.
     It performs a full-text search on document titles and contents, returning the most relevant snippets.
@@ -21,6 +20,7 @@ def search_knowledge_graph(query: str, limit: int = 10) -> str:
 
     Returns:
         A formatted string containing search results with content snippets and relevance scores
+
     """
     results = service.search(query, limit)
     if not results:
