@@ -55,5 +55,5 @@ async def ingest_document(
         task_data["text"] = text
 
     config = get_client_config()
-    task = process_document_task.delay(task_data)
+    task = process_document_task.apply_async(args=[task_data])
     return IngestResponse(task_id=task.id, status="accepted", env=config.env)
