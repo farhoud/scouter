@@ -5,17 +5,14 @@ import json
 import logging
 import os
 import shutil
-import sys
 from pathlib import Path
 from typing import Any
 
 import pytest
 
-# Add parent directory to sys.path to import scripts
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
 from scouter_app.ingestion.service import IngestionService
-from scripts.create_light_subset import create_light_subset
+
+from .create_light_subset import create_light_subset
 
 logger = logging.getLogger(__name__)
 
