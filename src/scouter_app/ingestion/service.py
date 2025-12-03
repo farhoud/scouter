@@ -1,12 +1,10 @@
 """Service for ingesting documents into the knowledge graph."""
 
-import os
 from typing import Any
 
 from neo4j_graphrag.experimental.pipeline.kg_builder import SimpleKGPipeline
 
-from neo4j import GraphDatabase
-from scouter_app.config.llm import get_neo4j_embedder, get_neo4j_llm
+from scouter_app.config.llm import get_neo4j_driver, get_neo4j_embedder, get_neo4j_llm
 
 
 class IngestionService:
@@ -14,11 +12,7 @@ class IngestionService:
 
     def __init__(self) -> None:
         """Initialize the ingestion service with Neo4j connection."""
-        self.uri = os.getenv("NEO4J_URI", "bolt://localhost:7687")
-        self.user = os.getenv("NEO4J_USER", "neo4j")
-        self.password = os.getenv("NEO4J_PASSWORD", "password")
-        self.driver = GraphDatabase.driver(self.uri, auth=(self.user, self.password))
-        # Singleton instances
+        self.driver = get_neo4j_driver()
         self.llm = get_neo4j_llm()
         self.embedder = get_neo4j_embedder()
 
