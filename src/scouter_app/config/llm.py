@@ -7,6 +7,9 @@ from neo4j_graphrag.llm import OpenAILLM
 from pydantic import model_validator
 from pydantic_settings import BaseSettings
 
+import neo4j
+from neo4j import GraphDatabase
+
 
 class ClientConfig(BaseSettings):
     provider: str = "openai"
@@ -62,6 +65,14 @@ def get_scouter_client() -> openai.OpenAI:
     config = get_client_config("openrouter")
     config.temperature = 0.0  # Deterministic for retrieval
     return create_client(config)
+
+
+@lru_cache(maxsize=1)
+def get_neo4j_driver() -> neo4j.Driver:
+    uri = os.getenv("NEO4J_URI", "bolt://localhost:7687")
+    user = os.getenv("NEO4J_USER", "neo4j")
+    password = os.getenv("NEO4J_PASSWORD", "password")
+    return GraphDatabase.driver(uri, auth=(user, password))
 
 
 @lru_cache(maxsize=1)
