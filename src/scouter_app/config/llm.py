@@ -10,11 +10,13 @@ from pydantic_settings import BaseSettings
 import neo4j
 from neo4j import GraphDatabase
 
+DEFAULT_MODEL = "google/gemini-2.0-flash-exp:free"
+
 
 class ClientConfig(BaseSettings):
     provider: str = "openai"
     api_key: str | None = None
-    model: str = "x-ai/grok-4.1-fast:free"
+    model: str = DEFAULT_MODEL
     api_base: str | None = None
     temperature: float = 0.7
     max_tokens: int | None = None

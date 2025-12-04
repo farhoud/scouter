@@ -45,6 +45,13 @@ class SearchResult(BaseModel):
     node_id: str = Field(..., description="ID of the graph node")
 
 
+class VectorSearchResult(BaseModel):
+    node_id: str = Field(description="Unique node identifier")
+    score: float = Field(description="Similarity score")
+    content: str = Field(description="Retrieved content")
+    metadata: dict | None = Field(default=None, description="Additional metadata")
+
+
 class IngestResponse(BaseModel):
     task_id: str = Field(..., description="Celery task ID for tracking ingestion")
     status: str = Field(..., description="Status of the ingestion request")

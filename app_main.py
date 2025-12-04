@@ -4,7 +4,6 @@ import logging
 
 from fastapi import FastAPI
 
-from src.scouter_app.agent.api import router as agent_router
 from src.scouter_app.agent.mcp import app as mcp_app
 from src.scouter_app.config.llm import get_client_config
 from src.scouter_app.ingestion.api import router as ingestion_router
@@ -21,7 +20,6 @@ app: FastAPI = FastAPI(
 
 # Include REST API routers
 app.include_router(ingestion_router)
-app.include_router(agent_router)
 
 # Mount FastMCP for tool access
 app.mount("/mcp", mcp_app)  # type: ignore[arg-type]

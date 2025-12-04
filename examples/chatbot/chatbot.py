@@ -1,54 +1,71 @@
-"""CLI chatbot with RAG using Scouter + OpenRouter."""
+"""CLI chatbot with RAG using Scouter + OpenRouter and MCP tools."""
 
-import requests
+import json
 
-from scouter_app.config.llm import get_chatbot_client
-
-HTTP_OK = 200
-
-SCOUTER_SEARCH_URL = "http://localhost:8000/v1/search"
+from scouter_app.agent.tools import get_tools
+from scouter_app.config.llm import DEFAULT_MODEL, get_chatbot_client
 
 # Get LLM client
 llm = get_chatbot_client()
 
 
-def retrieve_context(query: str) -> str:
-    """Retrieve context from Scouter.
+def chat_with_rag(query: str) -> str:
+    """Single message chatbot with RAG using Scouter + OpenRouter and MCP tools."""
+    tools = get_tools()
+    openai_tools = [tool["function"] for tool in tools]
+    messages = [
+        {
+            "role": "system",
+            "content": "You are a helpful chatbot with access to a knowledge graph. Use the available tools to search for information before answering if it helps provide accurate responses.",
+        },
+        {"role": "user", "content": query},
+    ]
 
-    Args:
-        query: Search query to retrieve context for.
+    # Call LLM with tools
+    response = llm.chat.completions.create(
+        model=DEFAULT_MODEL,
+        messages=messages,  # type: ignore[arg-type]
+        tools=openai_tools,
+        tool_choice="auto",
+        max_tokens=200,
+    )
 
-    Returns:
-        Retrieved context as a string, or error message.
-    """
-    response = requests.get(SCOUTER_SEARCH_URL, params={"query": query}, timeout=30)
-    if response.status_code == HTTP_OK:
-        results = response.json()
-        return "\n".join([r["content"] for r in results])
-    return "No context retrieved."
+    # Handle tool calls
+    if response.choices[0].message.tool_calls:
+        messages.append(response.choices[0].message.model_dump())  # type: ignore[arg-type]
+        for tool_call in response.choices[0].message.tool_calls:
+            tool_name = tool_call.function.name  # type: ignore[attr-defined]
+            args = json.loads(tool_call.function.arguments)  # type: ignore[attr-defined]
+            for tool in tools:
+                if tool["function"]["name"] == tool_name:
+                    result = tool["callable"](**args)
+                    # Append tool result
+                    messages.append(
+                        {
+                            "role": "tool",
+                            "tool_call_id": tool_call.id,
+                            "content": json.dumps([r.model_dump() for r in result])
+                            if isinstance(result, list)
+                            else json.dumps(result),
+                        }
+                    )
+                    break
 
-
-def chat_with_rag() -> None:
-    """CLI chatbot with RAG using Scouter + OpenRouter."""
-    while True:
-        user_input = input("You: ")
-        if user_input.lower() == "exit":
-            break
-
-        # Retrieve context
-        context = retrieve_context(user_input)
-
-        # Build prompt
-        prompt = f"Context: {context}\n\nQuestion: {user_input}\nAnswer:"
-
-        # Call LLM
+        # Follow-up response
         response = llm.chat.completions.create(
-            model="openai/gpt-3.5-turbo",  # Or other via OpenRouter
-            messages=[{"role": "user", "content": prompt}],
+            model=DEFAULT_MODEL,
+            messages=messages,  # type: ignore[arg-type]
             max_tokens=200,
         )
-        print(response.choices[0].message.content)  # noqa: T201
+
+    return response.choices[0].message.content or ""
 
 
 if __name__ == "__main__":
-    chat_with_rag()
+    import sys
+
+    if len(sys.argv) > 1:
+        query = sys.argv[1]
+        print(chat_with_rag(query))  # noqa: T201
+    else:
+        print("Usage: python chatbot.py 'your query'")  # noqa: T201

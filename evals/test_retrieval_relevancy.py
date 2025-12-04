@@ -1,29 +1,30 @@
-from deepeval.metrics import ContextualRelevancyMetric
+import pytest
+from deepeval.metrics import AnswerRelevancyMetric
 from deepeval.test_case import LLMTestCase
 
-from scouter_app.agent.service import SearchService
+from examples.chatbot.chatbot import chat_with_rag
 
 THRESHOLD = 0.5
 
 
-def test_retrieval_relevancy(dataset):
-    service = SearchService()
+@pytest.mark.parametrize(
+    "query_index", range(5)
+)  # Assuming 5 queries based on total_docs
+def test_chatbot_answer_relevancy(dataset, query_index):
     _a, q, _r = dataset
 
-    try:
-        results = service.search(q[0])
-        context = "\n".join([r.content for r in results])
+    queries = list(q.values())
+    query_data = queries[query_index]
+    query = query_data["query"]
+    response = chat_with_rag(query)
 
-        metric = ContextualRelevancyMetric()
-        test_case = LLMTestCase(
-            input=q[0],
-            actual_output="",
-            retrieval_context=[context],
-        )
+    metric = AnswerRelevancyMetric()
+    test_case = LLMTestCase(
+        input=query,
+        actual_output=response,
+    )
 
-        metric.measure(test_case)
+    metric.measure(test_case)
 
-        assert metric.score is not None
-        assert metric.score > THRESHOLD
-    finally:
-        service.close()
+    assert metric.score is not None
+    assert metric.score > THRESHOLD
