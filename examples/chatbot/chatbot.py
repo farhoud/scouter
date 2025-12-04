@@ -1,6 +1,5 @@
 """CLI chatbot with RAG using Scouter + OpenRouter and MCP tools."""
 
-
 from scouter_app.agent.agent import handle_tool_calls
 from scouter_app.agent.tools import get_tools
 from scouter_app.config.llm import (
