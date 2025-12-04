@@ -5,14 +5,13 @@ from functools import lru_cache
 import openai
 from neo4j_graphrag.embeddings import SentenceTransformerEmbeddings
 from neo4j_graphrag.llm import OpenAILLM
-
 from pydantic import model_validator
 from pydantic_settings import BaseSettings
 
 import neo4j
 from neo4j import GraphDatabase
 
-DEFAULT_MODEL = "google/gemini-2.0-flash-exp:free"
+DEFAULT_MODEL = "qwen/qwen3-235b-a22b:free"
 
 
 class ClientConfig(BaseSettings):
@@ -56,6 +55,7 @@ def create_client(config: ClientConfig) -> openai.OpenAI:
     return openai.OpenAI(
         api_key=config.api_key,
         base_url=config.api_base,
+        max_retries=0,  # Disable built-in retries to let our wrapper handle rate limits
     )
 
 
