@@ -3,7 +3,11 @@
 import json
 
 from scouter_app.agent.tools import get_tools
-from scouter_app.config.llm import DEFAULT_MODEL, get_chatbot_client
+from scouter_app.config.llm import (
+    DEFAULT_MODEL,
+    call_with_rate_limit,
+    get_chatbot_client,
+)
 
 # Get LLM client
 llm = get_chatbot_client()
@@ -22,7 +26,8 @@ def chat_with_rag(query: str) -> str:
     ]
 
     # Call LLM with tools
-    response = llm.chat.completions.create(
+    response = call_with_rate_limit(
+        llm,
         model=DEFAULT_MODEL,
         messages=messages,  # type: ignore[arg-type]
         tools=openai_tools,
@@ -30,8 +35,32 @@ def chat_with_rag(query: str) -> str:
         max_tokens=200,
     )
 
-    # Handle tool calls
-    if response.choices[0].message.tool_calls:
+        # Handle tool calls
+        if response.choices[0].message.tool_calls:  # type: ignore
+            messages.append(response.choices[0].message.model_dump())  # type: ignore[arg-type]
+            for tool_call in response.choices[0].message.tool_calls:  # type: ignore
+                tool_name = tool_call.function.name  # type: ignore[attr-defined]
+                args = json.loads(tool_call.function.arguments)  # type: ignore[attr-defined]
+                for tool in tools:
+                    if tool["function"]["name"] == tool_name:
+                        result = tool["callable"](**args)
+                        # Append tool result
+                        messages.append({
+                            "role": "tool",
+                            "tool_call_id": tool_call.id,
+                            "content": json.dumps([r.model_dump() for r in result]) if isinstance(result, list) else json.dumps(result)
+                        })
+                        break
+            
+            # Follow-up response
+            response = call_with_rate_limit(
+                llm,
+                model=DEFAULT_MODEL,
+                messages=messages,  # type: ignore[arg-type]
+                max_tokens=200,
+            )
+
+        print(response.choices[0].message.content)  # noqa: T201  # type: ignore[attr]
         messages.append(response.choices[0].message.model_dump())  # type: ignore[arg-type]
         for tool_call in response.choices[0].message.tool_calls:
             tool_name = tool_call.function.name  # type: ignore[attr-defined]

@@ -1,9 +1,11 @@
 import os
+import time
 from functools import lru_cache
 
 import openai
 from neo4j_graphrag.embeddings import SentenceTransformerEmbeddings
 from neo4j_graphrag.llm import OpenAILLM
+
 from pydantic import model_validator
 from pydantic_settings import BaseSettings
 
@@ -86,3 +88,20 @@ def get_neo4j_llm() -> OpenAILLM:
 @lru_cache(maxsize=1)
 def get_neo4j_embedder() -> SentenceTransformerEmbeddings:
     return SentenceTransformerEmbeddings("Qwen/Qwen3-Embedding-0.6B")
+
+
+def call_with_rate_limit(client: openai.OpenAI, **kwargs):
+    """Call OpenAI client with rate limit handling."""
+    max_retries = 5
+    for attempt in range(max_retries):
+        try:
+            return client.chat.completions.create(**kwargs)
+        except openai.RateLimitError:
+            if attempt < max_retries - 1:
+                wait_time = 2**attempt  # Exponential backoff
+                time.sleep(wait_time)
+            else:
+                raise
+        except Exception:
+            raise
+    return None  # Unreachable

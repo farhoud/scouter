@@ -1,7 +1,11 @@
 import json
 
 from scouter_app.agent.tools import get_tools
-from scouter_app.config.llm import DEFAULT_MODEL, get_scouter_client
+from scouter_app.config.llm import (
+    DEFAULT_MODEL,
+    call_with_rate_limit,
+    get_scouter_client,
+)
 
 
 def handle_tool_calls(response, tools, client, messages):
@@ -30,7 +34,8 @@ def handle_tool_calls(response, tools, client, messages):
                 break
 
     # Follow-up call for multi-turn
-    follow_up = client.chat.completions.create(
+    follow_up = call_with_rate_limit(
+        client,
         model=DEFAULT_MODEL,
         messages=messages,  # type: ignore[arg-type]
         tools=[t["function"] for t in tools],
@@ -52,7 +57,8 @@ def search_agent(query: str, hints: str = ""):
         {"role": "system", "content": system_content},
         {"role": "user", "content": query},
     ]
-    response = client.chat.completions.create(
+    response = call_with_rate_limit(
+        client,
         model=DEFAULT_MODEL,
         messages=messages,  # type: ignore[arg-type]
         tools=openai_tools,
