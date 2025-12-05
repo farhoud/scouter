@@ -13,6 +13,7 @@ dependencies = [
     "uvicorn",
     "celery[redis]",
     "fastmcp",
+    "mcp",
     "neo4j",
     "neo4j-graphrag[openai,sentence-transformers]",
     "pydantic",

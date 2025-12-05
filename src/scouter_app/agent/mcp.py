@@ -21,3 +21,7 @@ def search_knowledge_graph(query: str, hints: str = "") -> str:
 
     """
     return search_agent(query, hints)
+
+
+if __name__ == "__main__":
+    app.run()

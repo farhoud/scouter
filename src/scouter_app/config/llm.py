@@ -11,7 +11,7 @@ from pydantic_settings import BaseSettings
 import neo4j
 from neo4j import GraphDatabase
 
-DEFAULT_MODEL = "qwen/qwen3-235b-a22b:free"
+DEFAULT_MODEL = "openai/gpt-oss-20b:free"
 
 
 class ClientConfig(BaseSettings):
@@ -93,7 +93,7 @@ def get_neo4j_embedder() -> SentenceTransformerEmbeddings:
 def call_with_rate_limit(client: openai.OpenAI, **kwargs):
     """Call OpenAI client with rate limit handling."""
     max_retries = 5
-    for attempt in range(max_retries):
+    for attempt in range(max_retries):  # noqa: PERF203
         try:
             return client.chat.completions.create(**kwargs)
         except openai.RateLimitError:
