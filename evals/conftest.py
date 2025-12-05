@@ -12,7 +12,7 @@ import pytest
 
 from scouter_app.ingestion.service import IngestionService
 
-from .create_light_subset import create_light_subset
+from .utils import create_light_subset
 
 logger = logging.getLogger(__name__)
 
