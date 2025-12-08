@@ -3,6 +3,7 @@ from deepeval.metrics import AnswerRelevancyMetric
 from deepeval.test_case import LLMTestCase
 
 from examples.chatbot.chatbot import chat_with_rag
+
 from .utils import OpenRouterLLM
 
 THRESHOLD = 0.5

@@ -6,7 +6,7 @@ import json
 from mcp import ClientSession
 from mcp.client.stdio import StdioServerParameters, stdio_client
 
-from scouter_app.config.llm import (
+from scouter.config.llm import (
     DEFAULT_MODEL,
     call_with_rate_limit,
     get_chatbot_client,
@@ -31,8 +31,6 @@ async def chat_with_rag(query: str) -> str:
         await session.initialize()
 
         mcp_tools = await session.list_tools()
-
-        print(mcp_tools)
 
         # Convert MCP tools to OpenAI format
         openai_tools = [
@@ -72,15 +70,15 @@ async def chat_with_rag(query: str) -> str:
                 tool_args = json.loads(tool_call.function.arguments)
                 result = await session.call_tool(tool_name, tool_args)
                 # Add to messages
-                messages.append(  # type: ignore
-                    {"role": "assistant", "content": "", "tool_calls": [tool_call]}  # type: ignore
+                messages.append(  # type: ignore[PGH003]
+                    {"role": "assistant", "content": "", "tool_calls": [tool_call]}  # type: ignore[PGH003]
                 )
-                messages.append(  # type: ignore
+                messages.append(  # type: ignore[PGH003]
                     {
                         "role": "tool",
                         "content": str(result),
                         "tool_call_id": tool_call.id,
-                    }  # type: ignore
+                    }  # type: ignore[PGH003]
                 )
 
             # Call LLM again with updated messages

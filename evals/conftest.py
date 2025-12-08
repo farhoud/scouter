@@ -10,7 +10,7 @@ from typing import Any
 
 import pytest
 
-from scouter_app.ingestion.service import IngestionService
+from scouter.ingestion.service import IngestionService
 
 from .utils import create_light_subset
 
