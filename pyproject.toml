@@ -38,6 +38,9 @@ asyncio_mode = "auto"
 [tool.ruff]
 extend = "ruff.toml"
 
+[tool.hatch.build.targets.wheel]
+packages = ["src/scouter"]
+
 [dependency-groups]
 dev = [
     "pre-commit>=4.5.0",

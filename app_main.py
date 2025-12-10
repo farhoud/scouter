@@ -4,9 +4,9 @@ import logging
 
 from fastapi import FastAPI
 
-from src.scouter_app.agent.mcp import app as mcp_app
-from src.scouter_app.config.llm import get_client_config
-from src.scouter_app.ingestion.api import router as ingestion_router
+from src.scouter.agent.mcp import app as mcp_app
+from src.scouter.config.llm import get_client_config
+from src.scouter.ingestion.api import router as ingestion_router
 
 logger = logging.getLogger(__name__)
 

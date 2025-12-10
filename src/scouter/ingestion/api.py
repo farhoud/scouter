@@ -5,9 +5,9 @@ import tempfile
 
 from fastapi import APIRouter, Form, UploadFile
 
-from scouter_app.config.llm import get_client_config
-from scouter_app.ingestion.tasks import process_document_task
-from scouter_app.shared.domain_models import IngestResponse
+from scouter.config.llm import get_client_config
+from scouter.ingestion.tasks import process_document_task
+from scouter.shared.domain_models import IngestResponse
 
 router = APIRouter()
 

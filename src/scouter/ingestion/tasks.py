@@ -7,10 +7,10 @@ from typing import Any
 
 from celery import Celery
 
-from scouter_app.ingestion.service import IngestionService
+from scouter.ingestion.service import IngestionService
 
 app = Celery(
-    "scouter_app.ingestion.tasks",
+    "scouter.ingestion.tasks",
     broker=os.getenv("REDIS_URL", "redis://localhost:6379/0"),
 )
 

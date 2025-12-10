@@ -1,7 +1,7 @@
 import json
 
-from scouter_app.agent.tools import get_tools
-from scouter_app.config.llm import (
+from scouter.agent.tools import get_tools
+from scouter.config.llm import (
     DEFAULT_MODEL,
     call_with_rate_limit,
     get_scouter_client,

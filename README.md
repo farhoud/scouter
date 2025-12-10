@@ -4,11 +4,11 @@ Rapid assessment and retrieval from knowledge graph using Neo4j GraphRAG.
 
 ## Overview
 
-Scouter is a knowledge graph-based document retrieval system that:
+Scouter is a knowledge graph-based document retrieval system focused on MCP (Model Context Protocol) for agentic search:
 
 - Ingests PDFs and text documents using Neo4j GraphRAG's SimpleKGPipeline
-- Provides fast semantic search with relevance scoring
-- Supports both API and MCP (Model Context Protocol) interfaces
+- Provides agentic semantic search via MCP for LLM integration
+- Includes REST API for document ingestion
 - Includes evaluation framework for retrieval quality assessment
 
 ## Quick Start
@@ -62,31 +62,25 @@ curl -X POST "http://localhost:8000/v1/ingest" \
   -d '{"text": "Your document content", "metadata": {"source": "api"}}'
 ```
 
-### Search
-
-```bash
-# Search documents
-curl "http://localhost:8000/v1/search?query=your%20search%20term&limit=5"
-```
-
 ### Interactive API
 
 Visit <http://localhost:8000/docs> for interactive API documentation.
+
+**Note:** Search functionality is provided via MCP (Model Context Protocol) for agentic retrieval. Direct REST search API is not available.
 
 ## Architecture
 
 ### Components
 
 - **Ingestion Service**: Processes PDFs/text into knowledge graph using SimpleKGPipeline
-- **Search Service**: Performs semantic search with relevance scoring
-- **MCP Server**: Provides Model Context Protocol interface for LLM integration
+- **MCP Server**: Core component providing agentic search via Model Context Protocol for LLM integration
 - **Celery Workers**: Handle async document processing
 - **Redis**: Task queue and caching
 
 ### Data Flow
 
 1. Documents → Ingestion API → Celery Queue → Neo4j GraphRAG
-2. Search Query → Search API → Neo4j → Ranked Results
+2. Search Query → MCP Server → Agentic Search → Neo4j → Ranked Results
 
 ## Development
 
@@ -143,6 +137,17 @@ The project uses Neo4j with APOC plugin for enhanced graph procedures. Docker se
 
 ## Examples
 
+### MCP Integration (Primary Use Case)
+
+```bash
+# Start MCP server
+python -m scouter_app.agent.mcp
+
+# Use with Claude Desktop or other MCP-compatible tools
+```
+
+Scouter's MCP server enables agentic search for LLMs, providing semantic retrieval from the knowledge graph.
+
 ### RAG Chatbot
 
 ```bash
@@ -151,15 +156,6 @@ python chatbot.py
 ```
 
 Interactive chatbot that uses Scouter for retrieval and OpenRouter for generation.
-
-### MCP Integration
-
-```bash
-# Start MCP server
-python -m scouter_app.agent.mcp
-
-# Use with Claude Desktop or other MCP-compatible tools
-```
 
 ## Project Structure
 

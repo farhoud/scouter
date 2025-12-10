@@ -93,7 +93,7 @@ def get_neo4j_embedder() -> SentenceTransformerEmbeddings:
 def call_with_rate_limit(client: openai.OpenAI, **kwargs):
     """Call OpenAI client with rate limit handling."""
     max_retries = 5
-    for attempt in range(max_retries):  # noqa: PERF203
+    for attempt in range(max_retries):
         try:
             return client.chat.completions.create(**kwargs)
         except openai.RateLimitError:  # noqa: PERF203

@@ -4,7 +4,7 @@ from typing import Any
 
 from neo4j_graphrag.experimental.pipeline.kg_builder import SimpleKGPipeline
 
-from scouter_app.config.llm import get_neo4j_driver, get_neo4j_embedder, get_neo4j_llm
+from scouter.config.llm import get_neo4j_driver, get_neo4j_embedder, get_neo4j_llm
 
 
 class IngestionService:
