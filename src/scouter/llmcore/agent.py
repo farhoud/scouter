@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass, field
 from time import time
 from typing import TYPE_CHECKING, cast
@@ -20,7 +21,10 @@ if TYPE_CHECKING:
     )
 
 from .client import ChatCompletionOptions, call_llm
+from .exceptions import InvalidRunStateError
 from .tools import run_tool
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -89,7 +93,8 @@ class AgentRun:
     def last_output(self) -> str:
         if not self.steps:
             msg = "No steps in run"
-            raise ValueError(msg)
+            logger.error("Attempted to get last output from empty run")
+            raise InvalidRunStateError(msg)
         last_step = self.steps[-1]
         if isinstance(last_step, LLMStep):
             content = last_step.message.get("content")
@@ -129,6 +134,9 @@ def run_agent(
     tools: Iterable[ChatCompletionToolUnionParam] | None = None,
     options: ChatCompletionOptions | None = None,
 ):
+    logger.info(
+        "Starting agent run with model=%s, initial_steps=%d", model, len(run.steps)
+    )
     while run.continue_condition(run):
         completion: ChatCompletion = call_llm(
             model, run.conversation_history, tools, options
@@ -138,18 +146,26 @@ def run_agent(
 
         # Handle tool calls
         if msg.tool_calls:
+            logger.debug("Processing %d tool calls", len(msg.tool_calls))
             for tc in msg.tool_calls:
                 tc = cast("ChatCompletionMessageToolCall", tc)
                 args = json.loads(tc.function.arguments)
+                logger.debug(
+                    "Executing tool '%s' with args: %s", tc.function.name, args
+                )
                 start = time()
                 try:
                     output = run_tool(tc.function.name, args)
                     success = True
                     error = None
+                    logger.debug("Tool '%s' executed successfully", tc.function.name)
                 except Exception as e:  # noqa: BLE001
                     output = ""
                     success = False
                     error = str(e)
+                    logger.warning(
+                        "Tool '%s' execution failed: %s", tc.function.name, str(e)
+                    )
                 end = time()
                 run.add_step(
                     ToolStep(
@@ -162,3 +178,4 @@ def run_agent(
                         error,
                     )
                 )
+    logger.info("Agent run completed with %d total steps", len(run.steps))

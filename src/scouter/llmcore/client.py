@@ -1,3 +1,4 @@
+import logging
 import os
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -11,6 +12,8 @@ from openai.types.chat import (
 )
 
 from .utils import retry_loop
+
+logger = logging.getLogger(__name__)
 
 
 class ChatCompletionOptions(TypedDict, total=False):
@@ -50,13 +53,20 @@ class LLMConfig:
 
 def create_llm_client(cfg: LLMConfig | None = None) -> OpenAI:
     cfg = cfg or LLMConfig.load_from_env()
+    logger.debug(
+        "Creating LLM client with timeout=%d, max_retries=%d",
+        cfg.timeout,
+        cfg.max_retries,
+    )
 
-    return OpenAI(
+    client = OpenAI(
         api_key=cfg.api_key,
         base_url=cfg.base_url,
         timeout=cfg.timeout,
         max_retries=cfg.max_retries,
     )
+    logger.info("LLM client created successfully")
+    return client
 
 
 client = create_llm_client()
@@ -76,6 +86,13 @@ def call_llm(
         tools: Optional tools.
         options: Optional ChatCompletion options like max_tokens, temperature, etc.
     """
+    tools_count = sum(1 for _ in tools) if tools else 0
+    logger.debug(
+        "Calling LLM with model=%s, message_count=%d, tools_count=%d",
+        model,
+        len(messages),
+        tools_count,
+    )
 
     def _call():
         kwargs = options or {}
@@ -83,4 +100,6 @@ def call_llm(
             model=model, messages=messages, tools=tools or [], **kwargs
         )
 
-    return retry_loop(_call)
+    result = retry_loop(_call)
+    logger.debug("LLM call completed successfully")
+    return result
