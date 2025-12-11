@@ -1,14 +1,16 @@
 from __future__ import annotations
 
-import asyncio
 import inspect
 import json
+import logging
 from collections.abc import Callable  # noqa: TC003
 from typing import TYPE_CHECKING, Any, get_origin
 
 from pydantic import BaseModel, Field
 
-from .exceptions import ToolExecutionError
+from .exceptions import InvalidToolDefinitionError, ToolExecutionError
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from .types import ChatCompletionToolParam
@@ -28,11 +30,13 @@ class Tool(BaseModel):
     input_type: type[BaseModel] | None = None
 
     def model_post_init(self, /, __context) -> None:
+        logger.debug("Initializing tool '%s'", self.name)
         # 1. Extract input model from handler signature
         sig = inspect.signature(self.handler)
         if not sig.parameters:
             msg = f"Handler for tool '{self.name}' must have at least one argument (the input Pydantic model)."
-            raise TypeError(msg)
+            logger.error("Tool validation failed: %s", msg)
+            raise InvalidToolDefinitionError(msg)
 
         param = next(iter(sig.parameters.values()))
         input_model = param.annotation
@@ -40,7 +44,8 @@ class Tool(BaseModel):
         origin = get_origin(input_model) or input_model
         if not (isinstance(origin, type) and issubclass(origin, BaseModel)):
             msg = f"Handler first param for '{self.name}' must be a Pydantic BaseModel, got {origin}"
-            raise TypeError(msg)
+            logger.error("Tool validation failed: %s", msg)
+            raise InvalidToolDefinitionError(msg)
 
         self.input_type = origin  # SAVE THIS for execute_tool
 
@@ -53,7 +58,8 @@ class Tool(BaseModel):
             pass  # Allow BaseModel
         else:
             msg = f"Handler for '{self.name}' must return a Pydantic BaseModel or str"
-            raise TypeError(msg)
+            logger.error("Tool validation failed: %s", msg)
+            raise InvalidToolDefinitionError(msg)
 
         # 3. Auto-fill everything
         self.parameters_schema = origin.model_json_schema()
@@ -74,6 +80,7 @@ class Tool(BaseModel):
                 f"The tool will **always return JSON matching this exact schema**:\n"
                 f"```json\n{pretty_output}\n```"
             )
+        logger.debug("Tool '%s' initialized successfully", self.name)
 
     def openai_tool_spec(self) -> ChatCompletionToolParam:
         return {
@@ -116,15 +123,18 @@ def tool(name: str | None = None, description: str | None = None):
     return decorator
 
 
-def run_tool(name: str, raw_args: dict[str, Any]) -> str:
+async def run_tool(name: str, raw_args: dict[str, Any]) -> str:
     """
     Looks up a tool by name and executes it.
     """
+    logger.debug("Running tool '%s' with args: %s", name, raw_args)
     tool_instance = lookup_tool(name)
-    return execute_tool(tool_instance, raw_args)
+    result = await execute_tool(tool_instance, raw_args)
+    logger.debug("Tool '%s' completed successfully", name)
+    return result
 
 
-def execute_tool(tool_instance: Tool, raw_args: dict[str, Any]) -> str:
+async def execute_tool(tool_instance: Tool, raw_args: dict[str, Any]) -> str:
     """
     Executes a Pydantic Tool.
     1. Converts raw_args (dict) -> InputModel (Pydantic).
@@ -132,6 +142,7 @@ def execute_tool(tool_instance: Tool, raw_args: dict[str, Any]) -> str:
     3. Gets OutputModel or str.
     4. Returns OutputModel.model_dump_json() or the str.
     """
+    logger.debug("Executing tool '%s'", tool_instance.name)
     try:
         # 1. Instantiate the specific input model
         input_model_cls = tool_instance.input_type
@@ -142,7 +153,7 @@ def execute_tool(tool_instance: Tool, raw_args: dict[str, Any]) -> str:
         handler = tool_instance.handler
 
         if inspect.iscoroutinefunction(handler):
-            result_model = asyncio.run(handler(input_obj))
+            result_model = await handler(input_obj)
         else:
             result_model = handler(input_obj)
 
@@ -153,10 +164,14 @@ def execute_tool(tool_instance: Tool, raw_args: dict[str, Any]) -> str:
 
         # 4. Serialize Output
         if isinstance(result_model, str):
+            logger.debug("Tool '%s' returned string result", tool_instance.name)
             return result_model
-        return result_model.model_dump_json()
+        result = result_model.model_dump_json()
+        logger.debug("Tool '%s' returned JSON result", tool_instance.name)
+        return result  # noqa: TRY300
 
     except Exception as e:
+        logger.exception("Tool '%s' execution failed", tool_instance.name)
         msg = f"Error executing tool '{tool_instance.name}': {e!s}"
         raise ToolExecutionError(msg) from e
 
@@ -171,8 +186,10 @@ def register_tool(tool_instance: Tool) -> None:
     """
     if not tool_instance.name:
         msg = "Cannot register tool without a name."
+        logger.error("Tool registration failed: %s", msg)
         raise ToolExecutionError(msg)
     TOOL_REGISTRY[tool_instance.name] = tool_instance
+    logger.info("Tool '%s' registered successfully", tool_instance.name)
 
 
 def lookup_tool(name: str) -> Tool:
