@@ -6,7 +6,11 @@ from fastapi import FastAPI
 
 from src.scouter.agent.mcp import app as mcp_app
 from src.scouter.config.llm import get_client_config
+from src.scouter.config.logging import setup_logging
 from src.scouter.ingestion.api import router as ingestion_router
+
+# Setup logging
+setup_logging()
 
 logger = logging.getLogger(__name__)
 

@@ -1,6 +1,15 @@
 from .agent import AgentRun, run_agent
 from .client import ChatCompletionOptions, LLMConfig, call_llm, create_llm_client
-from .exceptions import AgentError, LLMError, ToolExecutionError
+from .exceptions import (
+    AgentError,
+    InvalidRunStateError,
+    InvalidToolDefinitionError,
+    LLMError,
+    MaxRetriesExceededError,
+    ToolExecutionError,
+)
+from .messages import create_instruction
+from .prompt import resolve_prompt
 from .tools import (
     Tool,
     create_tool,
@@ -20,6 +29,7 @@ from .types import (
     ChatCompletionToolMessageParam,
     ChatCompletionToolParam,
     ChatCompletionUserMessageParam,
+    Prompt,
 )
 from .utils import retry_loop
 
@@ -36,16 +46,22 @@ __all__ = [
     "ChatCompletionToolMessageParam",
     "ChatCompletionToolParam",
     "ChatCompletionUserMessageParam",
+    "InvalidRunStateError",
+    "InvalidToolDefinitionError",
     "LLMConfig",
     "LLMError",
+    "MaxRetriesExceededError",
+    "Prompt",
     "Tool",
     "ToolExecutionError",
     "call_llm",
+    "create_instruction",
     "create_llm_client",
     "create_tool",
     "execute_tool",
     "lookup_tool",
     "register_tool",
+    "resolve_prompt",
     "retry_loop",
     "run_agent",
     "run_tool",
