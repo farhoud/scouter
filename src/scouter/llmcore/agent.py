@@ -23,18 +23,16 @@ if TYPE_CHECKING:
 
 from .client import ChatCompletionOptions, call_llm
 from .exceptions import InvalidRunStateError
+from .flow import add_step_to_flow, create_flow, mark_flow_completed, mark_flow_running
+from .memory import MemoryFunction, full_history_memory
 from .tools import run_tool
 
 logger = logging.getLogger(__name__)
 
 
 @dataclass
-class InputStep:
-    message: ChatCompletionMessageParam
-
-
-@dataclass
 class LLMStep:
+    input: list[ChatCompletionMessageParam]
     completion: ChatCompletion
 
     @property
@@ -59,7 +57,7 @@ class ToolStep:
         )
 
 
-Step = InputStep | LLMStep | ToolStep
+Step = LLMStep | ToolStep
 
 
 @dataclass
@@ -67,36 +65,57 @@ class AgentRun:
     continue_condition: Callable[[AgentRun], bool] = field(
         default_factory=lambda: default_continue_condition_factory()
     )
-    steps: list[Step] = field(default_factory=list)
+    flows: list[dict] = field(default_factory=list)
+    memory_function: MemoryFunction = field(default=full_history_memory)
+    agents: dict[str, Callable[[], AgentRun]] = field(
+        default_factory=dict
+    )  # For multi-agent: factory functions
 
-    def add_step(self, step: Step) -> None:
-        """Add a step to the run."""
-        self.steps.append(step)
+    def add_flow(self, flow: dict) -> None:
+        """Add a flow to the run."""
+        self.flows.append(flow)
 
-    @property
-    def conversation_history(self) -> list[ChatCompletionMessageParam]:
-        return [step.message for step in self.steps]
+    def get_context(self) -> list[ChatCompletionMessageParam]:
+        """Get configurable memory context instead of flat history."""
+        return self.memory_function(self)
+
+    def run_sub_agent(self, agent_id: str) -> dict:
+        """Run a sub-agent within this run, returning its flow."""
+        if agent_id not in self.agents:
+            msg = f"Agent {agent_id} not registered"
+            raise ValueError(msg)
+        flow = create_flow(flow_id=f"{agent_id}_{len(self.flows)}", agent_id=agent_id)
+        mark_flow_running(flow)
+        self.add_flow(flow)
+        # TODO: Integrate with run_agent for actual execution
+        # For now, placeholder: assume sub_run executes and adds steps to flow
+        mark_flow_completed(flow)
+        return flow
 
     @property
     def total_usage(
         self,
     ) -> dict:  # Simplified, can make proper ChatCompletionUsage later
         total = {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0}
-        for step in self.steps:
-            if isinstance(step, LLMStep) and step.completion.usage:
-                usage = step.completion.usage
-                total["completion_tokens"] += usage.completion_tokens or 0
-                total["prompt_tokens"] += usage.prompt_tokens or 0
-                total["total_tokens"] += usage.total_tokens or 0
+        for flow in self.flows:
+            for step in flow["steps"]:
+                if isinstance(step, LLMStep) and step.completion.usage:
+                    usage = step.completion.usage
+                    total["completion_tokens"] += usage.completion_tokens or 0
+                    total["prompt_tokens"] += usage.prompt_tokens or 0
+                    total["total_tokens"] += usage.total_tokens or 0
         return total
 
     @property
     def last_output(self) -> str:
-        if not self.steps:
-            msg = "No steps in run"
+        if not self.flows:
+            msg = "No flows in run"
             logger.error("Attempted to get last output from empty run")
             raise InvalidRunStateError(msg)
-        last_step = self.steps[-1]
+        last_flow = self.flows[-1]
+        if not last_flow["steps"]:
+            return ""
+        last_step = last_flow["steps"][-1]
         if isinstance(last_step, LLMStep):
             content = last_step.message.get("content")
             return content if isinstance(content, str) else ""
@@ -106,7 +125,12 @@ class AgentRun:
 
     @property
     def tool_executions(self) -> list[ToolStep]:
-        return [step for step in self.steps if isinstance(step, ToolStep)]
+        executions = []
+        for flow in self.flows:
+            executions.extend(
+                [step for step in flow["steps"] if isinstance(step, ToolStep)]
+            )
+        return executions
 
 
 def default_continue_condition_factory(
@@ -114,17 +138,20 @@ def default_continue_condition_factory(
 ) -> Callable[[AgentRun], bool]:
     def condition(run: AgentRun) -> bool:
         if max_steps is not None:
-            llm_count = sum(1 for step in run.steps if isinstance(step, LLMStep))
+            llm_count = sum(
+                1
+                for flow in run.flows
+                for step in flow.steps
+                if isinstance(step, LLMStep)
+            )
             if llm_count >= max_steps:
                 return False
-        # Filter out InputStep to find the last meaningful step
-        non_input_steps = [
-            step for step in run.steps if not isinstance(step, InputStep)
-        ]
-        if not non_input_steps:
-            return True  # Only InputSteps present, initial state
-        last_non_input = non_input_steps[-1]
-        return isinstance(last_non_input, ToolStep)
+        # Find the last step across all flows
+        all_steps = [step for flow in run.flows for step in flow.steps]
+        if not all_steps:
+            return True  # No steps yet
+        last_step = all_steps[-1]
+        return isinstance(last_step, ToolStep)
 
     return condition
 
@@ -134,16 +161,21 @@ async def run_agent(
     model: str = "gpt-4o-mini",
     tools: Iterable[ChatCompletionToolUnionParam] | None = None,
     options: ChatCompletionOptions | None = None,
+    agent_id: str = "default",
 ):
     logger.info(
-        "Starting agent run with model=%s, initial_steps=%d", model, len(run.steps)
+        "Starting agent run with model=%s, initial_flows=%d", model, len(run.flows)
     )
+    current_flow = create_flow(id=f"{agent_id}_main", agent_id=agent_id)
+    mark_flow_running(current_flow)
+    run.add_flow(current_flow)
+
     while run.continue_condition(run):
-        completion: ChatCompletion = call_llm(
-            model, run.conversation_history, tools, options
-        )
+        context = run.get_context()
+        completion: ChatCompletion = call_llm(model, context, tools, options)
         msg = completion.choices[0].message
-        run.add_step(LLMStep(completion))
+        step = LLMStep(input=context, completion=completion)
+        add_step_to_flow(current_flow, step)
 
         # Handle tool calls
         if msg.tool_calls:
@@ -186,7 +218,7 @@ async def run_agent(
             tasks = [execute_single_tool(tc) for tc in tool_calls]
             tool_steps = await asyncio.gather(*tasks, return_exceptions=True)
 
-            # Add steps in the order of tool_calls to preserve conversation history
+            # Add steps to current flow
             for i, result in enumerate(tool_steps):
                 if isinstance(result, Exception):
                     # Handle unexpected errors in gather
@@ -196,7 +228,8 @@ async def run_agent(
                         tc.function.name,
                         result,
                     )
-                    run.add_step(
+                    add_step_to_flow(
+                        current_flow,
                         ToolStep(
                             tool_call_id=tc.id,
                             tool_name=tc.function.name,
@@ -205,8 +238,9 @@ async def run_agent(
                             execution_time=0.0,
                             success=False,
                             error_message=str(result),
-                        )
+                        ),
                     )
                 else:
-                    run.add_step(result)  # type: ignore[reportArgumentType]
-    logger.info("Agent run completed with %d total steps", len(run.steps))
+                    add_step_to_flow(current_flow, result)
+    mark_flow_completed(current_flow)
+    logger.info("Agent run completed with %d total flows", len(run.flows))
