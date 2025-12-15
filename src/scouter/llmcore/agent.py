@@ -7,57 +7,24 @@ from dataclasses import dataclass, field
 from time import time
 from typing import TYPE_CHECKING, cast
 
-from openai.types.chat import (
-    ChatCompletion,
-    ChatCompletionMessageParam,
-    ChatCompletionToolMessageParam,
-    ChatCompletionToolUnionParam,
-)
+from .client import ChatCompletionOptions, call_llm
+from .exceptions import InvalidRunStateError
+from .flow import Flow, LLMStep, ToolCall, ToolStep
+from .memory import MemoryFunction, full_history_memory
+from .tools import run_tool
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
 
-    from openai.types.chat.chat_completion_message_tool_call import (
+    from .types import (
+        ChatCompletion,
+        ChatCompletionMessageParam,
         ChatCompletionMessageToolCall,
+        ChatCompletionToolUnionParam,
     )
 
-from .client import ChatCompletionOptions, call_llm
-from .exceptions import InvalidRunStateError
-from .flow import add_step_to_flow, create_flow, mark_flow_completed, mark_flow_running
-from .memory import MemoryFunction, full_history_memory
-from .tools import run_tool
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class LLMStep:
-    input: list[ChatCompletionMessageParam]
-    completion: ChatCompletion
-
-    @property
-    def message(self) -> ChatCompletionMessageParam:
-        return cast("ChatCompletionMessageParam", self.completion.choices[0].message)
-
-
-@dataclass
-class ToolStep:
-    tool_call_id: str
-    tool_name: str
-    args: dict
-    output: str
-    execution_time: float
-    success: bool
-    error_message: str | None
-
-    @property
-    def message(self) -> ChatCompletionToolMessageParam:
-        return ChatCompletionToolMessageParam(
-            role="tool", content=self.output, tool_call_id=self.tool_call_id
-        )
-
-
-Step = LLMStep | ToolStep
 
 
 @dataclass
@@ -65,13 +32,13 @@ class AgentRun:
     continue_condition: Callable[[AgentRun], bool] = field(
         default_factory=lambda: default_continue_condition_factory()
     )
-    flows: list[dict] = field(default_factory=list)
+    flows: list[Flow] = field(default_factory=list)
     memory_function: MemoryFunction = field(default=full_history_memory)
     agents: dict[str, Callable[[], AgentRun]] = field(
         default_factory=dict
     )  # For multi-agent: factory functions
 
-    def add_flow(self, flow: dict) -> None:
+    def add_flow(self, flow: Flow) -> None:
         """Add a flow to the run."""
         self.flows.append(flow)
 
@@ -79,17 +46,17 @@ class AgentRun:
         """Get configurable memory context instead of flat history."""
         return self.memory_function(self)
 
-    def run_sub_agent(self, agent_id: str) -> dict:
+    def run_sub_agent(self, agent_id: str) -> Flow:
         """Run a sub-agent within this run, returning its flow."""
         if agent_id not in self.agents:
             msg = f"Agent {agent_id} not registered"
             raise ValueError(msg)
-        flow = create_flow(flow_id=f"{agent_id}_{len(self.flows)}", agent_id=agent_id)
-        mark_flow_running(flow)
+        flow = Flow(id=f"{agent_id}_{len(self.flows)}", agent_id=agent_id)
+        flow.mark_running()
         self.add_flow(flow)
         # TODO: Integrate with run_agent for actual execution
         # For now, placeholder: assume sub_run executes and adds steps to flow
-        mark_flow_completed(flow)
+        flow.mark_completed()
         return flow
 
     @property
@@ -98,7 +65,7 @@ class AgentRun:
     ) -> dict:  # Simplified, can make proper ChatCompletionUsage later
         total = {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0}
         for flow in self.flows:
-            for step in flow["steps"]:
+            for step in flow.steps:
                 if isinstance(step, LLMStep) and step.completion.usage:
                     usage = step.completion.usage
                     total["completion_tokens"] += usage.completion_tokens or 0
@@ -113,14 +80,14 @@ class AgentRun:
             logger.error("Attempted to get last output from empty run")
             raise InvalidRunStateError(msg)
         last_flow = self.flows[-1]
-        if not last_flow["steps"]:
+        if not last_flow.steps:
             return ""
-        last_step = last_flow["steps"][-1]
+        last_step = last_flow.steps[-1]
         if isinstance(last_step, LLMStep):
-            content = last_step.message.get("content")
-            return content if isinstance(content, str) else ""
+            content = last_step.completion.choices[0].message.content
+            return content if content else ""
         if isinstance(last_step, ToolStep):
-            return last_step.output
+            return str(last_step.messages)
         return ""
 
     @property
@@ -128,7 +95,7 @@ class AgentRun:
         executions = []
         for flow in self.flows:
             executions.extend(
-                [step for step in flow["steps"] if isinstance(step, ToolStep)]
+                [step for step in flow.steps if isinstance(step, ToolStep)]
             )
         return executions
 
@@ -156,7 +123,7 @@ def default_continue_condition_factory(
     return condition
 
 
-async def run_agent(
+async def run_flow(
     run: AgentRun,
     model: str = "gpt-4o-mini",
     tools: Iterable[ChatCompletionToolUnionParam] | None = None,
@@ -166,16 +133,16 @@ async def run_agent(
     logger.info(
         "Starting agent run with model=%s, initial_flows=%d", model, len(run.flows)
     )
-    current_flow = create_flow(id=f"{agent_id}_main", agent_id=agent_id)
-    mark_flow_running(current_flow)
+    current_flow = Flow(id=f"{agent_id}_main", agent_id=agent_id)
+    current_flow.mark_running()
     run.add_flow(current_flow)
 
     while run.continue_condition(run):
         context = run.get_context()
         completion: ChatCompletion = call_llm(model, context, tools, options)
         msg = completion.choices[0].message
-        step = LLMStep(input=context, completion=completion)
-        add_step_to_flow(current_flow, step)
+        step = LLMStep(completion=completion)
+        current_flow.add_step(step)
 
         # Handle tool calls
         if msg.tool_calls:
@@ -204,7 +171,7 @@ async def run_agent(
                         "Tool '%s' execution failed: %s", tc.function.name, str(e)
                     )
                 end = time()
-                return ToolStep(
+                return ToolCall(
                     tool_call_id=tc.id,
                     tool_name=tc.function.name,
                     args=args,
@@ -217,7 +184,7 @@ async def run_agent(
             # Execute all tools concurrently
             tasks = [execute_single_tool(tc) for tc in tool_calls]
             tool_steps = await asyncio.gather(*tasks, return_exceptions=True)
-
+            success: list[ToolCall] = []
             # Add steps to current flow
             for i, result in enumerate(tool_steps):
                 if isinstance(result, Exception):
@@ -228,19 +195,8 @@ async def run_agent(
                         tc.function.name,
                         result,
                     )
-                    add_step_to_flow(
-                        current_flow,
-                        ToolStep(
-                            tool_call_id=tc.id,
-                            tool_name=tc.function.name,
-                            args=json.loads(tc.function.arguments),
-                            output="",
-                            execution_time=0.0,
-                            success=False,
-                            error_message=str(result),
-                        ),
-                    )
-                else:
-                    add_step_to_flow(current_flow, result)
-    mark_flow_completed(current_flow)
+                elif isinstance(result, ToolCall):
+                    success.append(result)
+            current_flow.add_step(ToolStep(calls=success))
+    current_flow.mark_completed()
     logger.info("Agent run completed with %d total flows", len(run.flows))

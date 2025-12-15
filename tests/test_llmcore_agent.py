@@ -1,15 +1,11 @@
 """Tests for llmcore agent functionality."""
 
-from src.scouter.llmcore import (
-    create_flow,
-    mark_flow_completed,
-    mark_flow_running,
-)
+from src.scouter.llmcore.flow import Flow
 
 
 def test_flow_status():
-    flow = create_flow(flow_id="test")
-    mark_flow_running(flow)
-    assert flow["status"] == "running"
-    mark_flow_completed(flow)
-    assert flow["status"] == "completed"
+    flow = Flow(id="test")
+    flow.mark_running()
+    assert flow.status == "running"
+    flow.mark_completed()
+    assert flow.status == "completed"
