@@ -8,8 +8,9 @@ import json
 from typing import Any
 
 import neo4j
-from ..llmcore.flow import LLMStep, ToolStep, InputStep
-from ..llmcore.agent import AgentRun
+from scouter.llmcore.agent import AgentRun
+from scouter.llmcore.flow import InputStep, LLMStep, ToolCall, ToolStep
+from scouter.llmcore.types import ChatCompletion
 
 # Flow is now dict
 
@@ -127,14 +128,10 @@ class AgentRunRepository:
 
     def _deserialize_step(self, step_type: str, data: str):
         """Deserialize a step from JSON."""
-        from ..llmcore.types import ChatCompletion
-
         data_dict = json.loads(data)
         if step_type == "LLMStep":
             return LLMStep(completion=ChatCompletion(**data_dict["completion"]))
         if step_type == "ToolStep":
-            from ..llmcore.flow import ToolCall
-
             calls = [ToolCall(**call) for call in data_dict["calls"]]
             return ToolStep(calls=calls)
         if step_type == "InputStep":

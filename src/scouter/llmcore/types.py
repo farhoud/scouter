@@ -9,6 +9,7 @@ from openai.types.chat import (
     ChatCompletionSystemMessageParam,
     ChatCompletionToolMessageParam,
     ChatCompletionToolParam,
+    ChatCompletionToolUnionParam,
     ChatCompletionUserMessageParam,
 )
 from openai.types.chat.chat_completion_message_tool_call import (
@@ -24,9 +25,11 @@ __all__ = [
     "ChatCompletionMessage",
     "ChatCompletionMessageParam",
     "ChatCompletionMessageToolCall",
+    "ChatCompletionMessageToolCall",
     "ChatCompletionSystemMessageParam",
     "ChatCompletionToolMessageParam",
     "ChatCompletionToolParam",
+    "ChatCompletionToolUnionParam",
     "ChatCompletionUserMessageParam",
     "Prompt",
 ]
