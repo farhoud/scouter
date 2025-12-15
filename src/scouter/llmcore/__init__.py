@@ -1,4 +1,4 @@
-from .agent import AgentRun, run_agent
+from .agent import AgentRun, LLMStep, ToolStep, run_agent
 from .client import ChatCompletionOptions, LLMConfig, call_llm, create_llm_client
 from .exceptions import (
     AgentError,
@@ -50,10 +50,12 @@ __all__ = [
     "InvalidToolDefinitionError",
     "LLMConfig",
     "LLMError",
+    "LLMStep",
     "MaxRetriesExceededError",
     "Prompt",
     "Tool",
     "ToolExecutionError",
+    "ToolStep",
     "call_llm",
     "create_instruction",
     "create_llm_client",
