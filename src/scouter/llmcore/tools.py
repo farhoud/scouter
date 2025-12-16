@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 class Tool(BaseModel):
     name: str
     description: str
-    handler: Callable[[BaseModel], BaseModel | str]
+    handler: Callable[..., BaseModel | str]
 
     # Auto-filled fields
     parameters_schema: dict = Field(default_factory=dict)
@@ -94,7 +94,7 @@ class Tool(BaseModel):
 
 
 def create_tool(
-    name: str, description: str, handler: Callable[[BaseModel], BaseModel | str]
+    name: str, description: str, handler: Callable[..., BaseModel | str]
 ) -> Tool:
     """
     Creates a Pydantic Tool instance.
@@ -108,7 +108,7 @@ def tool(name: str | None = None, description: str | None = None):
     The decorated function MUST take a Pydantic model and return a Pydantic model or a string.
     """
 
-    def decorator(func: Callable[[BaseModel], BaseModel | str]):
+    def decorator(func: Callable[..., BaseModel | str]):
         tool_name = name or func.__name__
         tool_desc = description or (func.__doc__ or "No description.").strip()
 

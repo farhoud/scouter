@@ -1,16 +1,14 @@
-from fastmcp import FastMCP
+from scouter.mcp import app
 
-from .agent import search_agent
-
-app = FastMCP("Scouter Agent")
+from .agent import search_knowledge_graph
 
 
 @app.tool()
-def search_knowledge_graph(query: str, hints: str = "") -> str:
+async def search_knowledge_graph_tool(query: str, hints: str = "") -> str:
     """Search the knowledge graph for information related to the query using semantic search.
 
     This tool allows LLMs to retrieve relevant documents and knowledge from the Scouter knowledge graph.
-    It performs vector-based semantic search, returning the most relevant results.
+    It performs vector-based semantic search, returning the most relevant results with analysis.
 
     Args:
         query: The search query string to find relevant information
@@ -20,8 +18,4 @@ def search_knowledge_graph(query: str, hints: str = "") -> str:
         A response string containing search results and analysis
 
     """
-    return search_agent(query, hints)
-
-
-if __name__ == "__main__":
-    app.run()
+    return await search_knowledge_graph(query, hints)
