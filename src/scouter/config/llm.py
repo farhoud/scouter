@@ -24,27 +24,31 @@ class ClientConfig(BaseSettings):
     env: str = "test"
 
     @model_validator(mode="after")
-    def set_provider_defaults(self):
+    def validate_and_set_provider_defaults(self):
+        # Validate provider
+        supported_providers = ["openai", "openrouter"]
+        if self.provider not in supported_providers:
+            msg = f"Unsupported provider '{self.provider}'. Supported providers: {', '.join(supported_providers)}"
+            raise ValueError(msg)
+
+        # Set provider-specific defaults
         if self.provider == "openrouter":
             self.api_base = self.api_base or "https://openrouter.ai/api/v1"
             self.api_key = self.api_key or os.getenv("OPENROUTER_API_KEY")
-        else:
+        elif self.provider == "openai":
             self.api_key = self.api_key or os.getenv("OPENAI_API_KEY")
+
+        # Validate API key is set
         if not self.api_key:
-            msg = f"API key required for provider {self.provider}"
+            msg = f"API key required for provider '{self.provider}'. Set {'OPENROUTER_API_KEY' if self.provider == 'openrouter' else 'OPENAI_API_KEY'} environment variable."
             raise ValueError(msg)
+
+        # Validate environment
         if self.env not in ["development", "production", "test"]:
             msg = "env must be one of: development, production, test"
             raise ValueError(msg)
-        return self
 
-    def __init__(self, **data):
-        super().__init__(**data)
-        if self.provider == "openrouter":
-            self.api_base = self.api_base or "https://openrouter.ai/api/v1"
-            self.api_key = os.getenv("OPENROUTER_API_KEY", self.api_key)
-            # Map model if needed, e.g., self.model = "openai/gpt-3.5-turbo"
-        self.env = os.getenv("SCOUTER_ENV", self.env)
+        return self
 
 
 def get_client_config(provider: str = "openai") -> ClientConfig:
@@ -80,8 +84,8 @@ def get_neo4j_driver() -> neo4j.Driver:
 
 
 @lru_cache(maxsize=1)
-def get_neo4j_llm() -> OpenAILLM:
-    config = get_client_config("openrouter")
+def get_neo4j_llm(provider: str = "openrouter") -> OpenAILLM:
+    config = get_client_config(provider)
     return OpenAILLM(config.model, api_key=config.api_key, base_url=config.api_base)
 
 
