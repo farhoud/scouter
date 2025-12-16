@@ -1,4 +1,11 @@
-from .agent import AgentRun, LLMStep, ToolStep, run_agent
+from .agent import (
+    AgentConfig,
+    AgentRun,
+    LLMStep,
+    ToolStep,
+    create_agent,
+    run_agent,
+)
 from .client import ChatCompletionOptions, LLMConfig, call_llm, create_llm_client
 from .exceptions import (
     AgentError,
@@ -34,6 +41,7 @@ from .types import (
 from .utils import retry_loop
 
 __all__ = [
+    "AgentConfig",
     "AgentError",
     "AgentRun",
     "ChatCompletion",
@@ -57,6 +65,7 @@ __all__ = [
     "ToolExecutionError",
     "ToolStep",
     "call_llm",
+    "create_agent",
     "create_instruction",
     "create_llm_client",
     "create_tool",

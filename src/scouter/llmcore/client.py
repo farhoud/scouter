@@ -45,9 +45,21 @@ class LLMConfig:
 
     @staticmethod
     def load_from_env() -> "LLMConfig":
+        provider = os.getenv("LLM_PROVIDER", "openai")
+        if provider == "openrouter":
+            api_key = os.getenv("OPENROUTER_API_KEY") or os.getenv("OPENAI_API_KEY")
+            base_url = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
+        elif provider == "openai":
+            api_key = os.getenv("OPENAI_API_KEY")
+            base_url = os.getenv("OPENAI_BASE_URL")
+        else:
+            # Default to openai for backward compatibility
+            api_key = os.getenv("OPENAI_API_KEY")
+            base_url = os.getenv("OPENAI_BASE_URL")
+
         return LLMConfig(
-            api_key=os.getenv("OPENAI_API_KEY"),
-            base_url=os.getenv("OPENAI_BASE_URL"),
+            api_key=api_key,
+            base_url=base_url,
         )
 
 

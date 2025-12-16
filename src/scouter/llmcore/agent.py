@@ -9,9 +9,10 @@ from typing import TYPE_CHECKING, cast
 
 from .client import ChatCompletionOptions, call_llm
 from .exceptions import InvalidRunStateError
-from .flow import Flow, LLMStep, ToolCall, ToolStep
+from .flow import Flow, InputStep, LLMStep, ToolCall, ToolStep
 from .memory import MemoryFunction, full_history_memory
-from .tools import run_tool
+from .messages import create_instruction
+from .tools import lookup_tool, run_tool
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
@@ -26,6 +27,33 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# Constants
+TUPLE_INSTRUCTION_LENGTH = 2
+
+
+# Type for flexible instruction specification
+InstructionType = (
+    str  # Just system prompt
+    | tuple[str, str]  # (system_prompt, user_prompt)
+    | list["ChatCompletionMessageParam"]  # Full message list
+    | None  # No instructions
+)
+
+
+@dataclass
+class AgentConfig:
+    """Configuration for agent creation."""
+
+    name: str = "default"
+    provider: str = "openai"
+    model: str = "gpt-4o-mini"
+    temperature: float = 0.7
+    max_tokens: int | None = None
+    instructions: InstructionType = None
+    tools: list[str] | None = None  # Tool names
+    memory_function: MemoryFunction = full_history_memory
+    continue_condition: Callable[[AgentRun], bool] | None = None
+
 
 @dataclass
 class AgentRun:
@@ -34,9 +62,6 @@ class AgentRun:
     )
     flows: list[Flow] = field(default_factory=list)
     memory_function: MemoryFunction = field(default=full_history_memory)
-    agents: dict[str, Callable[[], AgentRun]] = field(
-        default_factory=dict
-    )  # For multi-agent: factory functions
 
     def add_flow(self, flow: Flow) -> None:
         """Add a flow to the run."""
@@ -45,19 +70,6 @@ class AgentRun:
     def get_context(self) -> list[ChatCompletionMessageParam]:
         """Get configurable memory context instead of flat history."""
         return self.memory_function(self)
-
-    def run_sub_agent(self, agent_id: str) -> Flow:
-        """Run a sub-agent within this run, returning its flow."""
-        if agent_id not in self.agents:
-            msg = f"Agent {agent_id} not registered"
-            raise ValueError(msg)
-        flow = Flow(id=f"{agent_id}_{len(self.flows)}", agent_id=agent_id)
-        flow.mark_running()
-        self.add_flow(flow)
-        # TODO: Integrate with run_agent for actual execution
-        # For now, placeholder: assume sub_run executes and adds steps to flow
-        flow.mark_completed()
-        return flow
 
     @property
     def total_usage(
@@ -200,3 +212,75 @@ async def run_flow(
             current_flow.add_step(ToolStep(calls=success))
     current_flow.mark_completed()
     logger.info("Agent run completed with %d total flows", len(run.flows))
+
+
+def _process_instructions(
+    instructions: InstructionType,
+) -> list[ChatCompletionMessageParam]:
+    """Convert instruction specification to message list."""
+    if instructions is None:
+        return []
+    if isinstance(instructions, str):
+        # Just system prompt
+        return [{"role": "system", "content": instructions}]
+    if (
+        isinstance(instructions, tuple)
+        and len(instructions) == TUPLE_INSTRUCTION_LENGTH
+    ):
+        return create_instruction(instructions[0], instructions[1])
+    if isinstance(instructions, list):
+        # Full message list
+        return instructions
+
+    msg = f"Invalid instruction format: {type(instructions)}"
+    raise ValueError(msg)
+
+
+def create_agent(config: AgentConfig) -> AgentRun:
+    """Create an agent from configuration."""
+    # Start with default continue condition if none specified
+    continue_cond = config.continue_condition
+    if continue_cond is None:
+        continue_cond = default_continue_condition_factory()
+
+    return AgentRun(
+        memory_function=config.memory_function, continue_condition=continue_cond
+    )
+
+
+async def run_agent(
+    agent: AgentRun,
+    config: AgentConfig,
+    messages: list[ChatCompletionMessageParam] | None = None,
+    **options,
+) -> AgentRun:
+    """Run an agent with configuration."""
+    input_messages = messages or []
+
+    # Get tools from registry
+    tools = None
+    if config.tools:
+        tools = [lookup_tool(name).openai_tool_spec() for name in config.tools]
+
+    # Process instructions and combine with input messages
+    instruction_messages = _process_instructions(config.instructions)
+    all_messages = instruction_messages + input_messages
+
+    # Add initial messages as InputStep to the agent
+    initial_flow = Flow(id="initial", agent_id=config.name)
+    initial_flow.add_step(InputStep(input=all_messages))
+    agent.add_flow(initial_flow)
+
+    # Build options dict, only including max_tokens if set
+    flow_options = {"temperature": config.temperature, **options}
+    if config.max_tokens is not None:
+        flow_options["max_tokens"] = config.max_tokens  # type: ignore[assignment]
+
+    await run_flow(
+        agent,
+        model=config.model,
+        tools=tools,
+        options=ChatCompletionOptions(**flow_options),
+    )
+
+    return agent
