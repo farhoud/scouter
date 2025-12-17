@@ -4,6 +4,8 @@ import time
 from dataclasses import dataclass, field
 from typing import cast
 
+from pydantic import BaseModel
+
 from .types import (
     ChatCompletion,
     ChatCompletionMessageParam,
@@ -22,11 +24,17 @@ class InputStep:
 
 @dataclass
 class LLMStep:
-    completion: ChatCompletion
+    completion: ChatCompletion | BaseModel
 
     @property
     def messages(self) -> list[ChatCompletionMessageParam]:
-        return [cast("ChatCompletionMessageParam", self.completion.choices[0].message)]
+        if isinstance(self.completion, ChatCompletion):
+            return [
+                cast("ChatCompletionMessageParam", self.completion.choices[0].message)
+            ]
+        # For structured output, create a message with the JSON content
+        content = self.completion.model_dump_json()
+        return [{"role": "assistant", "content": content}]  # type: ignore[return-value]
 
 
 @dataclass

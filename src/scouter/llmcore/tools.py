@@ -3,7 +3,7 @@ from __future__ import annotations
 import inspect
 import json
 import logging
-from collections.abc import Callable  # noqa: TC003
+from collections.abc import Awaitable, Callable  # noqa: TC003
 from typing import TYPE_CHECKING, Any, get_origin
 
 from pydantic import BaseModel, Field
@@ -13,13 +13,22 @@ from .exceptions import InvalidToolDefinitionError, ToolExecutionError
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
+    from mcp import ClientSession
+    from mcp.types import Tool as MCPTool
+
     from .types import ChatCompletionToolParam
+
+
+class MCPInput(BaseModel):
+    """Generic input model for MCP tools."""
+
+    args: dict[str, Any] = Field(..., description="Arguments for the MCP tool")
 
 
 class Tool(BaseModel):
     name: str
     description: str
-    handler: Callable[..., BaseModel | str]
+    handler: Callable[..., BaseModel | str] | Callable[..., Awaitable[BaseModel | str]]
 
     # Auto-filled fields
     parameters_schema: dict = Field(default_factory=dict)
@@ -200,3 +209,33 @@ def lookup_tool(name: str) -> Tool:
         msg = f"Tool '{name}' not found in registry."
         raise ToolExecutionError(msg)
     return TOOL_REGISTRY[name]
+
+
+def register_mcp_tools(session: ClientSession, mcp_tools: list[MCPTool]) -> None:
+    """
+    Registers MCP tools in the global tool registry.
+
+    Args:
+        session: The MCP ClientSession to use for tool execution.
+        mcp_tools: List of MCP Tool objects to register.
+    """
+    for mcp_tool in mcp_tools:
+        tool_name = mcp_tool.name
+
+        async def handler(inputs: MCPInput) -> str:
+            """Handler that calls the MCP tool via the session."""
+            result = await session.call_tool(tool_name, inputs.args)  # noqa: B023
+            if isinstance(result, dict):
+                return json.dumps(result)
+            return str(result)
+
+        # Create Tool instance
+        tool = Tool(
+            name=mcp_tool.name,
+            description=mcp_tool.description or "No description",
+            handler=handler,
+        )
+        # Override parameters_schema with MCP's inputSchema
+        tool.parameters_schema = mcp_tool.inputSchema
+        register_tool(tool)
+        logger.info("Registered MCP tool '%s'", mcp_tool.name)

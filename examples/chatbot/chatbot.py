@@ -2,21 +2,19 @@
 
 import asyncio
 import json
+from typing import TYPE_CHECKING, Any, cast
 
 from mcp import ClientSession
 from mcp.client.stdio import StdioServerParameters, stdio_client
 
-from scouter.config.llm import (
-    DEFAULT_MODEL,
-    call_with_rate_limit,
-    get_chatbot_client,
-)
+from scouter.config import config
+from scouter.llmcore import call_llm
 
-# Get LLM client
-llm = get_chatbot_client()
+if TYPE_CHECKING:
+    from openai.types.chat import ChatCompletionMessageToolCall
 
 
-async def chat_with_rag(query: str) -> str:
+async def chat_with_rag(query: str) -> str | None:
     """Single message chatbot with RAG using Scouter + OpenRouter and MCP tools."""
     server_params = StdioServerParameters(
         command="python",
@@ -33,7 +31,7 @@ async def chat_with_rag(query: str) -> str:
         mcp_tools = await session.list_tools()
 
         # Convert MCP tools to OpenAI format
-        openai_tools = [
+        openai_tools: list[dict[str, Any]] = [
             {
                 "type": "function",
                 "function": {
@@ -54,20 +52,19 @@ async def chat_with_rag(query: str) -> str:
         ]
 
         # Call LLM with tools
-        response = call_with_rate_limit(
-            llm,
-            model=DEFAULT_MODEL,
-            messages=messages,  # type: ignore[arg-type]
-            tools=openai_tools,
-            tool_choice="auto",
-            max_tokens=200,
+        response = call_llm(
+            config.llm.model,
+            messages,  # type: ignore[arg-type]
+            openai_tools,  # type: ignore[arg-type]
+            {"temperature": 0.9, "max_tokens": 200, "tool_choice": "auto"},  # type: ignore[arg-type]
         )
 
         # Handle tool calls
         if response.choices[0].message.tool_calls:  # type: ignore[attr-defined]
             for tool_call in response.choices[0].message.tool_calls:  # type: ignore[attr-defined]
-                tool_name = tool_call.function.name
-                tool_args = json.loads(tool_call.function.arguments)
+                tool_call = cast("ChatCompletionMessageToolCall", tool_call)
+                tool_name = tool_call.function.name  # type: ignore[attr-defined]
+                tool_args = json.loads(tool_call.function.arguments)  # type: ignore[attr-defined]
                 result = await session.call_tool(tool_name, tool_args)
                 # Add to messages
                 messages.append(  # type: ignore[PGH003]
@@ -82,11 +79,11 @@ async def chat_with_rag(query: str) -> str:
                 )
 
             # Call LLM again with updated messages
-            final_response = call_with_rate_limit(
-                llm,
-                model=DEFAULT_MODEL,
-                messages=messages,
-                max_tokens=200,
+            final_response = call_llm(
+                config.llm.model,
+                messages,  # type: ignore[arg-type]
+                None,
+                {"max_tokens": 200},  # type: ignore[arg-type]
             )
             final_content = final_response.choices[0].message.content  # type: ignore[attr-defined]
         else:

@@ -3,7 +3,7 @@ import ast
 from neo4j_graphrag.retrievers import VectorRetriever
 from pydantic import BaseModel, Field
 
-from scouter.config.llm import get_neo4j_driver, get_neo4j_embedder
+from scouter.db import get_neo4j_driver, get_neo4j_embedder
 from scouter.llmcore import tool
 from scouter.shared.domain_models import VectorSearchResult
 

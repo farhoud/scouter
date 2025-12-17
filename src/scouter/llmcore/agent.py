@@ -7,22 +7,23 @@ from dataclasses import dataclass, field
 from time import time
 from typing import TYPE_CHECKING, cast
 
-from .client import ChatCompletionOptions, call_llm
+from .client import ChatCompletionOptions, call_llm, structured_call_llm
 from .exceptions import InvalidRunStateError
 from .flow import Flow, InputStep, LLMStep, ToolCall, ToolStep
 from .memory import MemoryFunction, full_history_memory
 from .messages import create_instruction
 from .tools import lookup_tool, run_tool
+from .types import (
+    ChatCompletion,
+    ChatCompletionMessageParam,
+    ChatCompletionMessageToolCall,
+    ChatCompletionToolUnionParam,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
 
-    from .types import (
-        ChatCompletion,
-        ChatCompletionMessageParam,
-        ChatCompletionMessageToolCall,
-        ChatCompletionToolUnionParam,
-    )
+    from pydantic import BaseModel
 
 
 logger = logging.getLogger(__name__)
@@ -78,7 +79,11 @@ class AgentRun:
         total = {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0}
         for flow in self.flows:
             for step in flow.steps:
-                if isinstance(step, LLMStep) and step.completion.usage:
+                if (
+                    isinstance(step, LLMStep)
+                    and isinstance(step.completion, ChatCompletion)
+                    and step.completion.usage
+                ):
                     usage = step.completion.usage
                     total["completion_tokens"] += usage.completion_tokens or 0
                     total["prompt_tokens"] += usage.prompt_tokens or 0
@@ -96,8 +101,11 @@ class AgentRun:
             return ""
         last_step = last_flow.steps[-1]
         if isinstance(last_step, LLMStep):
-            content = last_step.completion.choices[0].message.content
-            return content if content else ""
+            if isinstance(last_step.completion, ChatCompletion):
+                content = last_step.completion.choices[0].message.content
+                return content if content else ""
+            # Structured output
+            return last_step.completion.model_dump_json()
         if isinstance(last_step, ToolStep):
             return str(last_step.messages)
         return ""
@@ -135,12 +143,13 @@ def default_continue_condition_factory(
     return condition
 
 
-async def run_flow(
+async def run_flow(  # noqa: PLR0913
     run: AgentRun,
     model: str = "gpt-4o-mini",
     tools: Iterable[ChatCompletionToolUnionParam] | None = None,
     options: ChatCompletionOptions | None = None,
     agent_id: str = "default",
+    output_model: type[BaseModel] | None = None,
 ):
     logger.info(
         "Starting agent run with model=%s, initial_flows=%d", model, len(run.flows)
@@ -151,13 +160,22 @@ async def run_flow(
 
     while run.continue_condition(run):
         context = run.get_context()
-        completion: ChatCompletion = call_llm(model, context, tools, options)
-        msg = completion.choices[0].message
+        if output_model:
+            completion = structured_call_llm(
+                model, context, output_model, tools, options
+            )
+        else:
+            completion = call_llm(model, context, tools, options)
         step = LLMStep(completion=completion)
         current_flow.add_step(step)
 
         # Handle tool calls
-        if msg.tool_calls:
+        if (
+            isinstance(completion, ChatCompletion)
+            and completion.choices[0].message.tool_calls
+        ):
+            msg = completion.choices[0].message
+            assert msg.tool_calls is not None
             logger.debug("Processing %d tool calls", len(msg.tool_calls))
             tool_calls = [
                 cast("ChatCompletionMessageToolCall", tc) for tc in msg.tool_calls
@@ -252,6 +270,7 @@ async def run_agent(
     agent: AgentRun,
     config: AgentConfig,
     messages: list[ChatCompletionMessageParam] | None = None,
+    output_model: type[BaseModel] | None = None,
     **options,
 ) -> AgentRun:
     """Run an agent with configuration."""
@@ -281,6 +300,7 @@ async def run_agent(
         model=config.model,
         tools=tools,
         options=ChatCompletionOptions(**flow_options),
+        output_model=output_model,
     )
 
     return agent

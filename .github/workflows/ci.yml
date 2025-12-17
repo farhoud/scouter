@@ -11,4 +11,4 @@ jobs:
       - run: uv venv
       - run: uv pip install -e .[dev]
       - run: uv run ruff check
-      - run: uv run pytest tests/test_mini_eval.py
+      - run: OPENAI_API_KEY=dummy uv run pytest tests/test_llmcore_client.py tests/test_llmcore_agent.py
