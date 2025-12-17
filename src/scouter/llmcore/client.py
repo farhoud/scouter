@@ -1,7 +1,7 @@
+import json
 import logging
-import os
 from collections.abc import Iterable
-from dataclasses import dataclass
+from functools import lru_cache
 from typing import TypedDict
 
 from openai import OpenAI
@@ -10,6 +10,9 @@ from openai.types.chat import (
     ChatCompletionMessageParam,
     ChatCompletionToolUnionParam,
 )
+from pydantic import BaseModel
+
+from scouter.config import config
 
 from .utils import retry_loop
 
@@ -26,6 +29,7 @@ class ChatCompletionOptions(TypedDict, total=False):
         frequency_penalty: Frequency penalty (-2.0 to 2.0).
         presence_penalty: Presence penalty (-2.0 to 2.0).
         stop: List of stop sequences.
+        response_format: Response format specification.
     """
 
     max_tokens: int
@@ -34,54 +38,21 @@ class ChatCompletionOptions(TypedDict, total=False):
     frequency_penalty: float
     presence_penalty: float
     stop: list[str]
+    response_format: dict
 
 
-@dataclass(slots=True)
-class LLMConfig:
-    api_key: str | None = None
-    base_url: str | None = None
-    timeout: int = 30
-    max_retries: int = 3
-
-    @staticmethod
-    def load_from_env() -> "LLMConfig":
-        provider = os.getenv("LLM_PROVIDER", "openai")
-        if provider == "openrouter":
-            api_key = os.getenv("OPENROUTER_API_KEY") or os.getenv("OPENAI_API_KEY")
-            base_url = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
-        elif provider == "openai":
-            api_key = os.getenv("OPENAI_API_KEY")
-            base_url = os.getenv("OPENAI_BASE_URL")
-        else:
-            # Default to openai for backward compatibility
-            api_key = os.getenv("OPENAI_API_KEY")
-            base_url = os.getenv("OPENAI_BASE_URL")
-
-        return LLMConfig(
-            api_key=api_key,
-            base_url=base_url,
-        )
-
-
-def create_llm_client(cfg: LLMConfig | None = None) -> OpenAI:
-    cfg = cfg or LLMConfig.load_from_env()
-    logger.debug(
-        "Creating LLM client with timeout=%d, max_retries=%d",
-        cfg.timeout,
-        cfg.max_retries,
+@lru_cache(maxsize=1)
+def get_llm_client() -> OpenAI:
+    """Get a singleton LLM client."""
+    return OpenAI(
+        api_key=config.llm.api_key,
+        base_url=config.llm.base_url,
+        timeout=config.llm.timeout,
+        max_retries=config.llm.max_retries,
     )
 
-    client = OpenAI(
-        api_key=cfg.api_key,
-        base_url=cfg.base_url,
-        timeout=cfg.timeout,
-        max_retries=cfg.max_retries,
-    )
-    logger.info("LLM client created successfully")
-    return client
 
-
-client = create_llm_client()
+client = get_llm_client()
 
 
 def call_llm(
@@ -114,4 +85,80 @@ def call_llm(
 
     result = retry_loop(_call)
     logger.debug("LLM call completed successfully")
+    return result
+
+
+def structured_call_llm(
+    model: str,
+    messages: list[ChatCompletionMessageParam],
+    output_model: type[BaseModel],
+    tools: Iterable[ChatCompletionToolUnionParam] | None = None,
+    options: ChatCompletionOptions | None = None,
+) -> BaseModel:
+    """
+    Call the LLM with structured output, returning a validated Pydantic model.
+
+    Args:
+        model: The model to use.
+        messages: List of messages.
+        output_model: Pydantic model class for the expected output.
+        tools: Optional tools.
+        options: Optional ChatCompletion options.
+
+    Returns:
+        An instance of output_model with validated data.
+
+    Raises:
+        ValueError: If JSON parsing or model validation fails.
+    """
+    schema = output_model.model_json_schema()
+    response_format = {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "structured_output",
+            "schema": schema,
+            "strict": True,
+        },
+    }
+
+    kwargs = options or {}
+    kwargs["response_format"] = response_format  # type: ignore[assignment]
+
+    tools_count = sum(1 for _ in tools) if tools else 0
+    logger.debug(
+        "Calling LLM with structured output: model=%s, message_count=%d, tools_count=%d, output_model=%s",
+        model,
+        len(messages),
+        tools_count,
+        output_model.__name__,
+    )
+
+    def _call():
+        return client.chat.completions.create(  # type: ignore[arg-type]
+            model=model, messages=messages, tools=tools or [], **kwargs
+        )
+
+    completion = retry_loop(_call)
+    content = completion.choices[0].message.content
+    if not content:
+        msg = "LLM returned empty content for structured output"
+        raise ValueError(msg)
+
+    try:
+        data = json.loads(content)
+    except json.JSONDecodeError as e:
+        msg = f"Failed to parse LLM response as JSON: {e}"
+        logger.exception(msg)
+        raise ValueError(msg) from e
+
+    try:
+        result = output_model(**data)
+    except Exception as e:
+        msg = f"Failed to validate LLM response against {output_model.__name__}: {e}"
+        logger.exception(msg)
+        raise ValueError(msg) from e
+
+    logger.debug(
+        "Structured LLM call completed successfully, returned %s", output_model.__name__
+    )
     return result

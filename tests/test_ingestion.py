@@ -5,7 +5,6 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-
 import scouter_app.ingestion.service as svc
 from scouter_app.ingestion.service import IngestionService
 

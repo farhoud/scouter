@@ -6,7 +6,7 @@ from .agent import (
     create_agent,
     run_agent,
 )
-from .client import ChatCompletionOptions, LLMConfig, call_llm, create_llm_client
+from .client import ChatCompletionOptions, call_llm, structured_call_llm
 from .exceptions import (
     AgentError,
     InvalidRunStateError,
@@ -22,6 +22,7 @@ from .tools import (
     create_tool,
     execute_tool,
     lookup_tool,
+    register_mcp_tools,
     register_tool,
     run_tool,
     tool,
@@ -56,7 +57,6 @@ __all__ = [
     "ChatCompletionUserMessageParam",
     "InvalidRunStateError",
     "InvalidToolDefinitionError",
-    "LLMConfig",
     "LLMError",
     "LLMStep",
     "MaxRetriesExceededError",
@@ -67,14 +67,15 @@ __all__ = [
     "call_llm",
     "create_agent",
     "create_instruction",
-    "create_llm_client",
     "create_tool",
     "execute_tool",
     "lookup_tool",
+    "register_mcp_tools",
     "register_tool",
     "resolve_prompt",
     "retry_loop",
     "run_agent",
     "run_tool",
+    "structured_call_llm",
     "tool",
 ]

@@ -5,7 +5,7 @@ import tempfile
 
 from fastapi import APIRouter, Form, UploadFile
 
-from scouter.config.llm import get_client_config
+from scouter.config import config
 from scouter.ingestion.tasks import process_document_task
 from scouter.shared.domain_models import IngestResponse
 
@@ -54,6 +54,6 @@ async def ingest_document(
     else:
         task_data["text"] = text
 
-    config = get_client_config()
+    cfg = config.llm
     task = process_document_task.apply_async(args=[task_data])
-    return IngestResponse(task_id=task.id, status="accepted", env=config.env)
+    return IngestResponse(task_id=task.id, status="accepted", env=cfg.env)
