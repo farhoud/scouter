@@ -3,14 +3,12 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from dataclasses import dataclass, field
 from time import time
 from typing import TYPE_CHECKING, cast
 
+from .agent_runtime import AgentConfig, AgentRun, default_continue_condition_factory
 from .client import ChatCompletionOptions, call_llm, structured_call_llm
-from .exceptions import InvalidRunStateError
 from .flow import Flow, InputStep, LLMStep, ToolCall, ToolStep
-from .memory import MemoryFunction, full_history_memory
 from .messages import create_instruction
 from .tools import lookup_tool, run_tool
 from .types import (
@@ -18,10 +16,11 @@ from .types import (
     ChatCompletionMessageParam,
     ChatCompletionMessageToolCall,
     ChatCompletionToolUnionParam,
+    InstructionType,
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterable
+    from collections.abc import Iterable
 
     from pydantic import BaseModel
 
@@ -30,117 +29,6 @@ logger = logging.getLogger(__name__)
 
 # Constants
 TUPLE_INSTRUCTION_LENGTH = 2
-
-
-# Type for flexible instruction specification
-InstructionType = (
-    str  # Just system prompt
-    | tuple[str, str]  # (system_prompt, user_prompt)
-    | list["ChatCompletionMessageParam"]  # Full message list
-    | None  # No instructions
-)
-
-
-@dataclass
-class AgentConfig:
-    """Configuration for agent creation."""
-
-    name: str = "default"
-    provider: str = "openai"
-    model: str = "gpt-4o-mini"
-    temperature: float = 0.7
-    max_tokens: int | None = None
-    instructions: InstructionType = None
-    tools: list[str] | None = None  # Tool names
-    memory_function: MemoryFunction = full_history_memory
-    continue_condition: Callable[[AgentRun], bool] | None = None
-
-
-@dataclass
-class AgentRun:
-    continue_condition: Callable[[AgentRun], bool] = field(
-        default_factory=lambda: default_continue_condition_factory()
-    )
-    flows: list[Flow] = field(default_factory=list)
-    memory_function: MemoryFunction = field(default=full_history_memory)
-
-    def add_flow(self, flow: Flow) -> None:
-        """Add a flow to the run."""
-        self.flows.append(flow)
-
-    def get_context(self) -> list[ChatCompletionMessageParam]:
-        """Get configurable memory context instead of flat history."""
-        return self.memory_function(self)
-
-    @property
-    def total_usage(
-        self,
-    ) -> dict:  # Simplified, can make proper ChatCompletionUsage later
-        total = {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0}
-        for flow in self.flows:
-            for step in flow.steps:
-                if (
-                    isinstance(step, LLMStep)
-                    and isinstance(step.completion, ChatCompletion)
-                    and step.completion.usage
-                ):
-                    usage = step.completion.usage
-                    total["completion_tokens"] += usage.completion_tokens or 0
-                    total["prompt_tokens"] += usage.prompt_tokens or 0
-                    total["total_tokens"] += usage.total_tokens or 0
-        return total
-
-    @property
-    def last_output(self) -> str:
-        if not self.flows:
-            msg = "No flows in run"
-            logger.error("Attempted to get last output from empty run")
-            raise InvalidRunStateError(msg)
-        last_flow = self.flows[-1]
-        if not last_flow.steps:
-            return ""
-        last_step = last_flow.steps[-1]
-        if isinstance(last_step, LLMStep):
-            if isinstance(last_step.completion, ChatCompletion):
-                content = last_step.completion.choices[0].message.content
-                return content if content else ""
-            # Structured output
-            return last_step.completion.model_dump_json()
-        if isinstance(last_step, ToolStep):
-            return str(last_step.messages)
-        return ""
-
-    @property
-    def tool_executions(self) -> list[ToolStep]:
-        executions = []
-        for flow in self.flows:
-            executions.extend(
-                [step for step in flow.steps if isinstance(step, ToolStep)]
-            )
-        return executions
-
-
-def default_continue_condition_factory(
-    max_steps: int | None = None,
-) -> Callable[[AgentRun], bool]:
-    def condition(run: AgentRun) -> bool:
-        if max_steps is not None:
-            llm_count = sum(
-                1
-                for flow in run.flows
-                for step in flow.steps
-                if isinstance(step, LLMStep)
-            )
-            if llm_count >= max_steps:
-                return False
-        # Find the last step across all flows
-        all_steps = [step for flow in run.flows for step in flow.steps]
-        if not all_steps:
-            return True  # No steps yet
-        last_step = all_steps[-1]
-        return isinstance(last_step, ToolStep)
-
-    return condition
 
 
 async def run_flow(  # noqa: PLR0913
@@ -262,7 +150,9 @@ def create_agent(config: AgentConfig) -> AgentRun:
         continue_cond = default_continue_condition_factory()
 
     return AgentRun(
-        memory_function=config.memory_function, continue_condition=continue_cond
+        config=config,
+        memory_function=config.memory_function,
+        continue_condition=continue_cond,
     )
 
 
@@ -274,6 +164,7 @@ async def run_agent(
     **options,
 ) -> AgentRun:
     """Run an agent with configuration."""
+    agent.config = config  # Attach config for persistence/tracing
     input_messages = messages or []
 
     # Get tools from registry

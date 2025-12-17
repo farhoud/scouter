@@ -1,10 +1,14 @@
 from .agent import (
-    AgentConfig,
-    AgentRun,
     LLMStep,
     ToolStep,
     create_agent,
     run_agent,
+)
+from .agent_runtime import (
+    AgentConfig,
+    AgentRun,
+    deserialize_agent_run,
+    serialize_agent_run,
 )
 from .client import ChatCompletionOptions, call_llm, structured_call_llm
 from .exceptions import (
@@ -68,6 +72,7 @@ __all__ = [
     "create_agent",
     "create_instruction",
     "create_tool",
+    "deserialize_agent_run",
     "execute_tool",
     "lookup_tool",
     "register_mcp_tools",
@@ -76,6 +81,7 @@ __all__ = [
     "retry_loop",
     "run_agent",
     "run_tool",
+    "serialize_agent_run",
     "structured_call_llm",
     "tool",
 ]

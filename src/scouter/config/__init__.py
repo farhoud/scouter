@@ -5,6 +5,12 @@ import os
 import sys
 from dataclasses import dataclass
 
+import openai
+from neo4j_graphrag.embeddings import SentenceTransformerEmbeddings
+from neo4j_graphrag.llm import OpenAILLM
+
+from neo4j import GraphDatabase
+
 
 @dataclass
 class LLMConfig:
@@ -87,6 +93,25 @@ class AppConfig:
             db=DBConfig.load_from_env(),
             logging=LoggingConfig(),
         )
+
+    def get_llm_client(self) -> openai.OpenAI:
+        return openai.OpenAI(
+            api_key=self.llm.api_key,
+            base_url=self.llm.base_url,
+            timeout=self.llm.timeout,
+            max_retries=self.llm.max_retries,
+        )
+
+    def get_neo4j_driver(self):
+        return GraphDatabase.driver(self.db.uri, auth=(self.db.user, self.db.password))
+
+    def get_neo4j_llm(self) -> OpenAILLM:
+        return OpenAILLM(
+            self.db.llm_model, api_key=self.llm.api_key, base_url=self.llm.base_url
+        )
+
+    def get_neo4j_embedder(self) -> SentenceTransformerEmbeddings:
+        return SentenceTransformerEmbeddings(self.db.embedder_model)
 
 
 config = AppConfig.load_from_env()

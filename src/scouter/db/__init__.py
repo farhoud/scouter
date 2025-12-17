@@ -6,10 +6,18 @@ primarily focused on Neo4j for graph-based storage and retrieval.
 
 from .models import AgentRunRepository
 from .neo4j import get_neo4j_driver, get_neo4j_embedder, get_neo4j_llm
+from .persistence import (
+    load_agent_run_from_neo4j,
+    neo4j_persistence,
+    neo4j_trace_function,
+)
 
 __all__ = [
     "AgentRunRepository",
     "get_neo4j_driver",
     "get_neo4j_embedder",
     "get_neo4j_llm",
+    "load_agent_run_from_neo4j",
+    "neo4j_persistence",
+    "neo4j_trace_function",
 ]
