@@ -3839,6 +3839,7 @@ dependencies = [
     { name = "neo4j-graphrag", extra = ["openai", "sentence-transformers"] },
     { name = "pydantic" },
     { name = "pydantic-settings" },
+    { name = "pyjwt" },
     { name = "uvicorn" },
 ]
 
@@ -3873,6 +3874,7 @@ requires-dist = [
     { name = "pdfplumber", marker = "extra == 'dev'" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
+    { name = "pyjwt" },
     { name = "pytest", marker = "extra == 'dev'" },
     { name = "pytest-watcher", marker = "extra == 'dev'" },
     { name = "requests", marker = "extra == 'dev'" },
