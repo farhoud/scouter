@@ -18,6 +18,7 @@ dependencies = [
     "neo4j-graphrag[openai,sentence-transformers]",
     "pydantic",
     "pydantic-settings",
+    "PyJWT",
 ]
 
 [project.optional-dependencies]
