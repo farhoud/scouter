@@ -52,6 +52,17 @@ def get_llm_client() -> OpenAI:
     )
 
 
+@lru_cache(maxsize=32)  # Cache up to 32 different user clients
+def get_user_llm_client(api_key: str, base_url: str | None = None) -> OpenAI:
+    """Get an LLM client for a specific user API key."""
+    return OpenAI(
+        api_key=api_key,
+        base_url=base_url or config.llm.base_url,
+        timeout=config.llm.timeout,
+        max_retries=config.llm.max_retries,
+    )
+
+
 client = get_llm_client()
 
 
@@ -60,6 +71,7 @@ def call_llm(
     messages: list[ChatCompletionMessageParam],
     tools: Iterable[ChatCompletionToolUnionParam] | None = None,
     options: ChatCompletionOptions | None = None,
+    api_key: str | None = None,
 ) -> ChatCompletion:
     """Call the LLM with the given parameters.
 
@@ -68,6 +80,7 @@ def call_llm(
         messages: List of messages.
         tools: Optional tools.
         options: Optional ChatCompletion options like max_tokens, temperature, etc.
+        api_key: Optional user API key to use instead of global.
     """
     tools_count = sum(1 for _ in tools) if tools else 0
     logger.debug(
@@ -76,6 +89,8 @@ def call_llm(
         len(messages),
         tools_count,
     )
+
+    client = get_user_llm_client(api_key) if api_key else get_llm_client()
 
     def _call():
         kwargs = options or {}
@@ -94,6 +109,7 @@ def structured_call_llm(
     output_model: type[BaseModel],
     tools: Iterable[ChatCompletionToolUnionParam] | None = None,
     options: ChatCompletionOptions | None = None,
+    api_key: str | None = None,
 ) -> BaseModel:
     """
     Call the LLM with structured output, returning a validated Pydantic model.
@@ -104,6 +120,7 @@ def structured_call_llm(
         output_model: Pydantic model class for the expected output.
         tools: Optional tools.
         options: Optional ChatCompletion options.
+        api_key: Optional user API key to use instead of global.
 
     Returns:
         An instance of output_model with validated data.
@@ -132,6 +149,8 @@ def structured_call_llm(
         tools_count,
         output_model.__name__,
     )
+
+    client = get_user_llm_client(api_key) if api_key else get_llm_client()
 
     def _call():
         return client.chat.completions.create(  # type: ignore[arg-type]

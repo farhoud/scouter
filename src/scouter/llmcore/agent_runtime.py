@@ -47,6 +47,10 @@ class AgentConfig:
     persistence_function: Callable[[AgentRun], None] = memory_persistence
     tracing_enabled: bool = False
     trace_function: Callable[[dict[str, Any]], None] = memory_trace
+    user_id: str | None = None
+    user_api_key: str | None = None
+    user_model: str | None = None
+    track_usage: bool = True
 
 
 @dataclass
@@ -70,6 +74,8 @@ class AgentRun:
     def total_usage(
         self,
     ) -> dict:  # Simplified, can make proper ChatCompletionUsage later
+        if not self.config.track_usage:
+            return {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0}
         total = {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0}
         for flow in self.flows:
             for step in flow.steps:

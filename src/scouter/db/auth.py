@@ -20,6 +20,7 @@ def create_rbac_constraints(driver: neo4j.Driver) -> None:
         "CREATE CONSTRAINT oauth_identity_unique IF NOT EXISTS FOR (oi:OAuthIdentity) REQUIRE (oi.provider, oi.sub) IS UNIQUE",
         "CREATE CONSTRAINT role_id_unique IF NOT EXISTS FOR (r:Role) REQUIRE r.id IS UNIQUE",
         "CREATE CONSTRAINT permission_key_unique IF NOT EXISTS FOR (p:Permission) REQUIRE p.key IS UNIQUE",
+        "CREATE CONSTRAINT user_llm_config_unique IF NOT EXISTS FOR (c:UserLLMConfig) REQUIRE c.user_id IS UNIQUE",
     ]
 
     with driver.session() as session:
