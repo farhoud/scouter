@@ -3,6 +3,7 @@
 from typing import Any
 
 import neo4j
+from scouter.auth.types import IdentityContext
 
 
 def create_rbac_constraints(driver: neo4j.Driver) -> None:
@@ -122,7 +123,7 @@ def build_identity_context(
     user_id: str,
     tenant_id: str,
     token_claims: dict[str, Any],
-) -> dict[str, Any]:
+) -> IdentityContext:
     """Build complete identity context for a user and tenant.
 
     Args:
@@ -132,7 +133,7 @@ def build_identity_context(
         token_claims: Raw JWT token claims
 
     Returns:
-        Complete IdentityContext dict
+        Complete IdentityContext
 
     Raises:
         ValueError: If user is not a member of the tenant
@@ -144,10 +145,10 @@ def build_identity_context(
     roles = get_user_roles(driver, user_id, tenant_id)
     permissions = get_user_permissions(driver, user_id, tenant_id)
 
-    return {
-        "user_id": user_id,
-        "tenant_id": tenant_id,
-        "roles": roles,
-        "permissions": permissions,
-        "token_claims": token_claims,
-    }
+    return IdentityContext(
+        user_id=user_id,
+        tenant_id=tenant_id,
+        roles=roles,
+        permissions=permissions,
+        token_claims=token_claims,
+    )

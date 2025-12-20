@@ -13,7 +13,7 @@ def get_identity(request: Request) -> IdentityContext:
         request: FastAPI request object
 
     Returns:
-        IdentityContext dict
+        IdentityContext
 
     Raises:
         HTTPException: If identity is not found in request state
@@ -40,8 +40,7 @@ def require_permission(required: str):
     def dependency(
         identity: IdentityContext = Depends(get_identity),
     ) -> IdentityContext:
-        permissions = identity.get("permissions", set())
-        if not has_permission(permissions, required):
+        if not has_permission(identity.permissions, required):
             raise HTTPException(
                 status_code=403,
                 detail=f"Permission denied: {required}",
@@ -64,8 +63,7 @@ def require_any_permission(required: set[str]):
     def dependency(
         identity: IdentityContext = Depends(get_identity),
     ) -> IdentityContext:
-        permissions = identity.get("permissions", set())
-        if not any(has_permission(permissions, perm) for perm in required):
+        if not any(has_permission(identity.permissions, perm) for perm in required):
             raise HTTPException(
                 status_code=403,
                 detail=f"Permission denied: requires one of {required}",
@@ -88,8 +86,7 @@ def require_all_permissions(required: set[str]):
     def dependency(
         identity: IdentityContext = Depends(get_identity),
     ) -> IdentityContext:
-        permissions = identity.get("permissions", set())
-        if not all(has_permission(permissions, perm) for perm in required):
+        if not all(has_permission(identity.permissions, perm) for perm in required):
             raise HTTPException(
                 status_code=403,
                 detail=f"Permission denied: requires all of {required}",
