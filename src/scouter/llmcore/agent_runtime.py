@@ -47,9 +47,7 @@ class AgentConfig:
     persistence_function: Callable[[AgentRun], None] = memory_persistence
     tracing_enabled: bool = False
     trace_function: Callable[[dict[str, Any]], None] = memory_trace
-    user_id: str | None = None
-    user_api_key: str | None = None
-    user_model: str | None = None
+    api_key: str | None = None
     track_usage: bool = True
 
 

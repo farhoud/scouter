@@ -166,8 +166,8 @@ async def run_agent(
 ) -> AgentRun:
     """Run an agent with configuration."""
     agent.config = config  # Attach config for persistence/tracing
-    # Track usage only if not using user-provided API key
-    config.track_usage = config.user_api_key is None
+    # Track usage only if not using agent-provided API key
+    config.track_usage = config.api_key is None
     input_messages = messages or []
 
     # Get tools from registry
@@ -189,14 +189,13 @@ async def run_agent(
     if config.max_tokens is not None:
         flow_options["max_tokens"] = config.max_tokens  # type: ignore[assignment]
 
-    model = config.user_model or config.model
     await run_flow(
         agent,
-        model=model,
+        model=config.model,
         tools=tools,
         options=ChatCompletionOptions(**flow_options),
         output_model=output_model,
-        api_key=config.user_api_key,
+        api_key=config.api_key,
     )
 
     return agent
