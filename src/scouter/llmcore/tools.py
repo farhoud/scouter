@@ -169,7 +169,7 @@ async def execute_tool(tool_instance: Tool, raw_args: dict[str, Any]) -> str:
         # 3. Validate Return
         if not isinstance(result_model, (BaseModel, str)):
             msg = f"Tool '{tool_instance.name}' handler did not return a Pydantic model or str."
-            raise ToolExecutionError(msg)  # noqa: TRY301
+            raise ToolExecutionError(msg)
 
         # 4. Serialize Output
         if isinstance(result_model, str):

@@ -83,7 +83,7 @@ async def run_flow(  # noqa: PLR0913
                     output = await run_tool(tc.function.name, args)
                     success = True
                     logger.debug("Tool '%s' executed successfully", tc.function.name)
-                except Exception as e:  # noqa: BLE001
+                except Exception as e:
                     error = str(e)
                     logger.warning(
                         "Tool '%s' execution failed: %s", tc.function.name, str(e)
