@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Protocol
 
 from pydantic import BaseModel
 
@@ -21,6 +21,34 @@ if TYPE_CHECKING:
 
 
 logger = logging.getLogger(__name__)
+
+
+class AgentRuntimeSerializer(Protocol):
+    """Protocol for AgentRuntime serialization/deserialization."""
+
+    def serialize(self, agent_runtime: AgentRuntime) -> dict[str, Any]:
+        """Serialize an AgentRuntime to a dictionary."""
+        ...
+
+    def deserialize(self, data: dict[str, Any]) -> AgentRuntime:
+        """Deserialize an AgentRuntime from a dictionary."""
+        ...
+
+
+class DefaultAgentRuntimeSerializer:
+    """Default implementation of AgentRuntime serialization."""
+
+    def serialize(self, agent_runtime: AgentRuntime) -> dict[str, Any]:
+        """Serialize an AgentRuntime to a dictionary."""
+        return serialize_agent_runtime(agent_runtime)
+
+    def deserialize(self, data: dict[str, Any]) -> AgentRuntime:
+        """Deserialize an AgentRuntime from a dictionary."""
+        return deserialize_agent_runtime(data)
+
+
+# Global serializer instance
+agent_runtime_serializer = DefaultAgentRuntimeSerializer()
 
 
 def memory_persistence(run: AgentRuntime) -> None:
@@ -114,12 +142,12 @@ class AgentRuntime:
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize the agent run to a dictionary."""
-        return serialize_agent_runtime(self)
+        return agent_runtime_serializer.serialize(self)
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> AgentRuntime:
         """Deserialize an agent run from a dictionary."""
-        return deserialize_agent_runtime(data)
+        return agent_runtime_serializer.deserialize(data)
 
     @property
     def tool_executions(self) -> list[ToolStep]:
