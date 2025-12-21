@@ -6,43 +6,164 @@ in Neo4j with proper separation of config, runtime, and trace data.
 
 import json
 import uuid
-from datetime import datetime, timezone
+from typing import Any
 
 import neo4j
-from scouter.llmcore.agent_runtime import AgentRuntime, agent_runtime_serializer
+from scouter.llmcore.agent_runtime import AgentConfig, AgentRuntime
+from scouter.llmcore.flow import InputStep, LLMStep, ToolCall, ToolStep
+from scouter.llmcore.types import ChatCompletion
+
+# Flow is now dict
+
+
+def _serialize_step(step) -> dict[str, Any]:
+    """Serialize a step to a dict."""
+    if isinstance(step, LLMStep):
+        return {
+            "completion": step.completion.model_dump(),
+        }
+    if isinstance(step, ToolStep):
+        return {
+            "calls": [call.__dict__ for call in step.calls],
+        }
+    if isinstance(step, InputStep):
+        return {
+            "input": step.input,
+        }
+    return {"data": str(step)}
+
+
+def _deserialize_step(step_type: str, data: str):
+    """Deserialize a step from JSON."""
+    data_dict = json.loads(data)
+    if step_type == "LLMStep":
+        return LLMStep(completion=ChatCompletion(**data_dict["completion"]))
+    if step_type == "ToolStep":
+        calls = [ToolCall(**call) for call in data_dict["calls"]]
+        return ToolStep(calls=calls)
+    if step_type == "InputStep":
+        return InputStep(input=data_dict["input"])
+    msg = f"Unknown step type: {step_type}"
+    raise ValueError(msg)
 
 
 def persist_agent_runtime(driver: neo4j.Driver, run: AgentRuntime, run_id: str) -> None:
-    """Persist an AgentRuntime to Neo4j using dict serialization."""
+    """Persist an AgentRuntime to Neo4j with separate config and runtime data."""
     with driver.session() as session:
-        # Serialize the runtime to dict
-        data = agent_runtime_serializer.serialize(run)
+        # Create config node
+        config_id = f"{run_id}_config"
+        session.run(
+            """
+            MERGE (c:AgentConfig {id: $config_id})
+            SET c.api_key = $api_key,
+                c.model = $model,
+                c.provider = $provider,
+                c.track_usage = $track_usage
+            """,
+            config_id=config_id,
+            api_key=run.config.api_key,
+            model=run.config.model,
+            provider=run.config.provider,
+            track_usage=run.config.track_usage,
+        )
 
-        # Save as JSON in a single node
+        # Create run node (runtime data only)
         session.run(
             """
             MERGE (r:AgentRuntime {id: $id})
-            SET r.data = $data, r.updated_at = $timestamp
+            SET r.total_usage = $total_usage,
+                r.memory_strategy = $memory_strategy
+            WITH r
+            MATCH (c:AgentConfig {id: $config_id})
+            MERGE (r)-[:USES_CONFIG]->(c)
             """,
             id=run_id,
-            data=json.dumps(data),
-            timestamp=datetime.now(timezone.utc).isoformat(),
+            total_usage=json.dumps(run.total_usage),
+            memory_strategy=type(run.memory_function).__name__,
+            config_id=config_id,
         )
+
+        # Create flow nodes and relationships
+        for flow in run.flows:
+            session.run(
+                """
+                    MATCH (r:AgentRuntime {id: $run_id})
+                    MERGE (f:Flow {id: $flow_id})
+                    SET f.agent_id = $agent_id,
+                        f.status = $status,
+                        f.metadata = $metadata,
+                        f.parent_flow_id = $parent_flow_id
+                    CREATE (r)-[:HAS_FLOW]->(f)
+                    """,
+                run_id=run_id,
+                flow_id=flow.id,
+                agent_id=flow.agent_id,
+                status=flow.status,
+                metadata=json.dumps(flow.metadata),
+                parent_flow_id=flow.parent_flow_id,
+            )
+
+            # Create step nodes for each flow
+            for i, step in enumerate(flow.steps):
+                step_data = _serialize_step(step)
+                session.run(
+                    """
+                        MATCH (f:Flow {id: $flow_id})
+                        CREATE (s:AgentStep {index: $index, type: $type, data: $data})
+                        CREATE (f)-[:HAS_STEP]->(s)
+                        """,
+                    flow_id=flow.id,
+                    index=i,
+                    type=type(step).__name__,
+                    data=json.dumps(step_data),
+                )
 
 
 def load_agent_runtime(driver: neo4j.Driver, run_id: str) -> AgentRuntime | None:
     """Load an AgentRuntime from Neo4j."""
     with driver.session() as session:
         result = session.run(
-            "MATCH (r:AgentRuntime {id: $id}) RETURN r.data as data",
+            """
+            MATCH (r:AgentRuntime {id: $id})-[:USES_CONFIG]->(c:AgentConfig),
+                  (r)-[:HAS_FLOW]->(f:Flow)-[:HAS_STEP]->(s:AgentStep)
+            RETURN r, c, f, collect(s) as steps ORDER BY f.id, s.index
+            """,
             id=run_id,
         )
-        record = result.single()
-        if not record:
+        records = list(result)
+        if not records:
             return None
 
-        data = json.loads(record["data"])
-        return agent_runtime_serializer.deserialize(data)
+        config_node = records[0]["c"]
+        config = AgentConfig(
+            api_key=config_node.get("api_key"),
+            model=config_node.get("model", "gpt-4o-mini"),
+            provider=config_node.get("provider", "openai"),
+            track_usage=config_node.get("track_usage", True),
+        )
+        flows = {}
+        for record in records:
+            flow_node = record["f"]
+            step_nodes = record["steps"]
+
+            flow_id = flow_node["id"]
+            if flow_id not in flows:
+                flows[flow_id] = {
+                    "id": flow_id,
+                    "agent_id": flow_node["agent_id"],
+                    "status": flow_node["status"],
+                    "metadata": json.loads(flow_node["metadata"]),
+                    "parent_flow_id": flow_node["parent_flow_id"],
+                    "steps": [],
+                }
+
+            # Reconstruct steps
+            for step_node in step_nodes:
+                step = _deserialize_step(step_node["type"], step_node["data"])
+                flows[flow_id]["steps"].append(step)
+
+        return AgentRuntime(config=config, flows=list(flows.values()))
+        # TODO: Restore memory_function from run_node
 
 
 def persist_trace(driver: neo4j.Driver, run_id: str, data: dict) -> None:
@@ -71,3 +192,28 @@ def persist_trace(driver: neo4j.Driver, run_id: str, data: dict) -> None:
             end_time=data.get("end_time"),
             attributes=data.get("attributes", {}),
         )
+
+
+class DBAgentRuntimeSerializer:
+    """Database-backed implementation of AgentRuntime serialization."""
+
+    def __init__(self, driver: neo4j.Driver):
+        self.driver = driver
+
+    def serialize(self, agent_runtime: AgentRuntime) -> dict[str, Any]:
+        """Serialize by persisting to database and returning run_id."""
+        run_id = str(uuid.uuid4())
+        persist_agent_runtime(self.driver, agent_runtime, run_id)
+        return {"run_id": run_id, "persisted": True}
+
+    def deserialize(self, data: dict[str, Any]) -> AgentRuntime:
+        """Deserialize by loading from database using run_id."""
+        run_id = data.get("run_id")
+        if not run_id:
+            msg = "run_id required for DB deserialization"
+            raise ValueError(msg)
+        runtime = load_agent_runtime(self.driver, run_id)
+        if not runtime:
+            msg = f"AgentRuntime with run_id {run_id} not found"
+            raise ValueError(msg)
+        return runtime
