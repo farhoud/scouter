@@ -6,9 +6,9 @@ from .agent import (
 )
 from .agent_runtime import (
     AgentConfig,
-    AgentRun,
-    deserialize_agent_run,
-    serialize_agent_run,
+    AgentRuntime,
+    deserialize_agent_runtime,
+    serialize_agent_runtime,
 )
 from .client import ChatCompletionOptions, call_llm, structured_call_llm
 from .exceptions import (
@@ -48,7 +48,7 @@ from .utils import retry_loop
 __all__ = [
     "AgentConfig",
     "AgentError",
-    "AgentRun",
+    "AgentRuntime",
     "ChatCompletion",
     "ChatCompletionAssistantMessageParam",
     "ChatCompletionMessage",
@@ -73,6 +73,7 @@ __all__ = [
     "create_instruction",
     "create_tool",
     "deserialize_agent_run",
+    "deserialize_agent_runtime",
     "execute_tool",
     "lookup_tool",
     "register_mcp_tools",
@@ -82,6 +83,7 @@ __all__ = [
     "run_agent",
     "run_tool",
     "serialize_agent_run",
+    "serialize_agent_runtime",
     "structured_call_llm",
     "tool",
 ]

@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def memory_persistence(run: AgentRun) -> None:
+def memory_persistence(run: AgentRuntime) -> None:
     """Default persistence function: memory-only (no-op)."""
 
 
@@ -43,8 +43,8 @@ class AgentConfig:
     instructions: InstructionType = None
     tools: list[str] | None = None  # Tool names
     memory_function: MemoryFunction = full_history_memory
-    continue_condition: Callable[[AgentRun], bool] | None = None
-    persistence_function: Callable[[AgentRun], None] = memory_persistence
+    continue_condition: Callable[[AgentRuntime], bool] | None = None
+    persistence_function: Callable[[AgentRuntime], None] = memory_persistence
     tracing_enabled: bool = False
     trace_function: Callable[[dict[str, Any]], None] = memory_trace
     api_key: str | None = None
@@ -52,9 +52,9 @@ class AgentConfig:
 
 
 @dataclass
-class AgentRun:
+class AgentRuntime:
     config: AgentConfig
-    continue_condition: Callable[[AgentRun], bool] = field(
+    continue_condition: Callable[[AgentRuntime], bool] = field(
         default_factory=lambda: default_continue_condition_factory()
     )
     flows: list[Flow] = field(default_factory=list)
@@ -114,12 +114,12 @@ class AgentRun:
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize the agent run to a dictionary."""
-        return serialize_agent_run(self)
+        return serialize_agent_runtime(self)
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> AgentRun:
+    def from_dict(cls, data: dict[str, Any]) -> AgentRuntime:
         """Deserialize an agent run from a dictionary."""
-        return deserialize_agent_run(data)
+        return deserialize_agent_runtime(data)
 
     @property
     def tool_executions(self) -> list[ToolStep]:
@@ -133,8 +133,8 @@ class AgentRun:
 
 def default_continue_condition_factory(
     max_steps: int | None = None,
-) -> Callable[[AgentRun], bool]:
-    def condition(run: AgentRun) -> bool:
+) -> Callable[[AgentRuntime], bool]:
+    def condition(run: AgentRuntime) -> bool:
         if max_steps is not None:
             llm_count = sum(
                 1
@@ -154,14 +154,14 @@ def default_continue_condition_factory(
     return condition
 
 
-def serialize_agent_run(agent_run: AgentRun) -> dict[str, Any]:
-    """Serialize an AgentRun to a dictionary.
+def serialize_agent_runtime(agent_run: AgentRuntime) -> dict[str, Any]:
+    """Serialize an AgentRuntime to a dictionary.
 
     Args:
-        agent_run: The AgentRun instance to serialize.
+        agent_run: The AgentRuntime instance to serialize.
 
     Returns:
-        A dictionary representation of the AgentRun.
+        A dictionary representation of the AgentRuntime.
     """
     # Serialize flows
     flows_data = []
@@ -235,17 +235,17 @@ def serialize_agent_run(agent_run: AgentRun) -> dict[str, Any]:
     }
 
 
-def deserialize_agent_run(data: dict[str, Any]) -> AgentRun:
-    """Deserialize an AgentRun from a dictionary.
+def deserialize_agent_runtime(data: dict[str, Any]) -> AgentRuntime:
+    """Deserialize an AgentRuntime from a dictionary.
 
     Args:
-        data: The dictionary representation of the AgentRun.
+        data: The dictionary representation of the AgentRuntime.
 
     Returns:
-        The reconstructed AgentRun instance.
+        The reconstructed AgentRuntime instance.
     """
     # This is a simplified deserialization - in practice, you'd need to reconstruct
-    # the full objects. For now, return a basic AgentRun.
+    # the full objects. For now, return a basic AgentRuntime.
 
     # Reconstruct flows (simplified)
     flows = []
@@ -258,7 +258,7 @@ def deserialize_agent_run(data: dict[str, Any]) -> AgentRun:
 
     # Use a basic config for deserialization
     config = AgentConfig()
-    return AgentRun(
+    return AgentRuntime(
         config=config,
         flows=flows,
         memory_function=full_history_memory,

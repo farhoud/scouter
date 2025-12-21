@@ -21,7 +21,7 @@ def create_rbac_constraints(driver: neo4j.Driver) -> None:
         "CREATE CONSTRAINT role_id_unique IF NOT EXISTS FOR (r:Role) REQUIRE r.id IS UNIQUE",
         "CREATE CONSTRAINT permission_key_unique IF NOT EXISTS FOR (p:Permission) REQUIRE p.key IS UNIQUE",
         "CREATE CONSTRAINT user_llm_config_unique IF NOT EXISTS FOR (c:UserLLMConfig) REQUIRE c.user_id IS UNIQUE",
-        "CREATE CONSTRAINT agent_run_id_unique IF NOT EXISTS FOR (r:AgentRun) REQUIRE r.id IS UNIQUE",
+        "CREATE CONSTRAINT agent_runtime_id_unique IF NOT EXISTS FOR (r:AgentRuntime) REQUIRE r.id IS UNIQUE",
         "CREATE CONSTRAINT agent_config_id_unique IF NOT EXISTS FOR (c:AgentConfig) REQUIRE c.id IS UNIQUE",
         "CREATE CONSTRAINT trace_span_id_unique IF NOT EXISTS FOR (t:Trace) REQUIRE t.span_id IS UNIQUE",
     ]

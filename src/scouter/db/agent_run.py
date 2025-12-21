@@ -9,7 +9,7 @@ import uuid
 from typing import Any
 
 import neo4j
-from scouter.llmcore.agent import AgentRun
+from scouter.llmcore.agent import AgentRuntimetime
 from scouter.llmcore.agent_runtime import AgentConfig
 from scouter.llmcore.flow import InputStep, LLMStep, ToolCall, ToolStep
 from scouter.llmcore.types import ChatCompletion
@@ -48,8 +48,10 @@ def _deserialize_step(step_type: str, data: str):
     raise ValueError(msg)
 
 
-def persist_agent_run(driver: neo4j.Driver, run: AgentRun, run_id: str) -> None:
-    """Persist an AgentRun to Neo4j with separate config and runtime data."""
+def persist_agent_runtime(
+    driver: neo4j.Driver, run: AgentRuntimetime, run_id: str
+) -> None:
+    """Persist an AgentRuntimetime to Neo4j with separate config and runtime data."""
     with driver.session() as session:
         # Create config node
         config_id = f"{run_id}_config"
@@ -71,7 +73,7 @@ def persist_agent_run(driver: neo4j.Driver, run: AgentRun, run_id: str) -> None:
         # Create run node (runtime data only)
         session.run(
             """
-            MERGE (r:AgentRun {id: $id})
+            MERGE (r:AgentRuntimetime {id: $id})
             SET r.total_usage = $total_usage,
                 r.memory_strategy = $memory_strategy
             WITH r
@@ -88,7 +90,7 @@ def persist_agent_run(driver: neo4j.Driver, run: AgentRun, run_id: str) -> None:
         for flow in run.flows:
             session.run(
                 """
-                    MATCH (r:AgentRun {id: $run_id})
+                    MATCH (r:AgentRuntimetime {id: $run_id})
                     MERGE (f:Flow {id: $flow_id})
                     SET f.agent_id = $agent_id,
                         f.status = $status,
@@ -120,12 +122,12 @@ def persist_agent_run(driver: neo4j.Driver, run: AgentRun, run_id: str) -> None:
                 )
 
 
-def load_agent_run(driver: neo4j.Driver, run_id: str) -> AgentRun | None:
-    """Load an AgentRun from Neo4j."""
+def load_agent_runtime(driver: neo4j.Driver, run_id: str) -> AgentRuntimetime | None:
+    """Load an AgentRuntimetime from Neo4j."""
     with driver.session() as session:
         result = session.run(
             """
-            MATCH (r:AgentRun {id: $id})-[:USES_CONFIG]->(c:AgentConfig),
+            MATCH (r:AgentRuntimetime {id: $id})-[:USES_CONFIG]->(c:AgentConfig),
                   (r)-[:HAS_FLOW]->(f:Flow)-[:HAS_STEP]->(s:AgentStep)
             RETURN r, c, f, collect(s) as steps ORDER BY f.id, s.index
             """,
@@ -163,7 +165,7 @@ def load_agent_run(driver: neo4j.Driver, run_id: str) -> AgentRun | None:
                 step = _deserialize_step(step_node["type"], step_node["data"])
                 flows[flow_id]["steps"].append(step)
 
-        return AgentRun(config=config, flows=list(flows.values()))
+        return AgentRuntimetime(config=config, flows=list(flows.values()))
         # TODO: Restore memory_function from run_node
 
 
@@ -173,10 +175,10 @@ def persist_trace(driver: neo4j.Driver, run_id: str, data: dict) -> None:
     data["span_id"] = span_id
 
     with driver.session() as session:
-        # Create Trace node linked to AgentRun
+        # Create Trace node linked to AgentRuntimetime
         session.run(
             """
-            MATCH (r:AgentRun {id: $run_id})
+            MATCH (r:AgentRuntimetime {id: $run_id})
             CREATE (t:Trace {
                 span_id: $span_id,
                 operation: $operation,

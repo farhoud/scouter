@@ -6,7 +6,7 @@ import logging
 from time import time
 from typing import TYPE_CHECKING, cast
 
-from .agent_runtime import AgentConfig, AgentRun, default_continue_condition_factory
+from .agent_runtime import AgentConfig, AgentRuntime, default_continue_condition_factory
 from .client import ChatCompletionOptions, call_llm, structured_call_llm
 from .flow import Flow, InputStep, LLMStep, ToolCall, ToolStep
 from .messages import create_instruction
@@ -32,7 +32,7 @@ TUPLE_INSTRUCTION_LENGTH = 2
 
 
 async def run_flow(
-    run: AgentRun,
+    run: AgentRuntime,
     model: str = "gpt-4o-mini",
     tools: Iterable[ChatCompletionToolUnionParam] | None = None,
     options: ChatCompletionOptions | None = None,
@@ -143,14 +143,14 @@ def _process_instructions(
     raise ValueError(msg)
 
 
-def create_agent(config: AgentConfig) -> AgentRun:
+def create_agent(config: AgentConfig) -> AgentRuntime:
     """Create an agent from configuration."""
     # Start with default continue condition if none specified
     continue_cond = config.continue_condition
     if continue_cond is None:
         continue_cond = default_continue_condition_factory()
 
-    return AgentRun(
+    return AgentRuntime(
         config=config,
         memory_function=config.memory_function,
         continue_condition=continue_cond,
@@ -158,12 +158,12 @@ def create_agent(config: AgentConfig) -> AgentRun:
 
 
 async def run_agent(
-    agent: AgentRun,
+    agent: AgentRuntime,
     config: AgentConfig,
     messages: list[ChatCompletionMessageParam] | None = None,
     output_model: type[BaseModel] | None = None,
     **options,
-) -> AgentRun:
+) -> AgentRuntime:
     """Run an agent with configuration."""
     agent.config = config  # Attach config for persistence/tracing
     # Track usage only if not using agent-provided API key

@@ -1,4 +1,4 @@
-from scouter.llmcore import AgentConfig, AgentRun, create_agent, run_agent
+from scouter.llmcore import AgentConfig, AgentRuntime, create_agent, run_agent
 from scouter.llmcore.types import (
     ChatCompletionMessageParam,
     ChatCompletionSystemMessageParam,
@@ -6,7 +6,7 @@ from scouter.llmcore.types import (
 )
 
 
-def get_search_agent() -> tuple[AgentRun, AgentConfig]:
+def get_search_agent() -> tuple[AgentRuntime, AgentConfig]:
     """Get a pre-configured search agent for knowledge graph queries."""
     config = AgentConfig(
         name="search",

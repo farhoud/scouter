@@ -6,10 +6,10 @@ from typing import TYPE_CHECKING
 from .types import ChatCompletionMessageParam
 
 if TYPE_CHECKING:
-    from .agent import AgentRun
+    from .agent import AgentRuntime
 
 
-def full_history_memory(run: "AgentRun") -> list[ChatCompletionMessageParam]:
+def full_history_memory(run: "AgentRuntime") -> list[ChatCompletionMessageParam]:
     """Memory that includes all conversation history."""
     messages: list[ChatCompletionMessageParam] = []
     for flow in run.flows:
@@ -18,4 +18,4 @@ def full_history_memory(run: "AgentRun") -> list[ChatCompletionMessageParam]:
     return messages
 
 
-MemoryFunction = Callable[["AgentRun"], list[ChatCompletionMessageParam]]
+MemoryFunction = Callable[["AgentRuntime"], list[ChatCompletionMessageParam]]
