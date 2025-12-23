@@ -1,6 +1,5 @@
+from scouter.agents.search import search_knowledge_graph
 from scouter.mcp import app
-
-from .agent import search_knowledge_graph
 
 
 @app.tool()

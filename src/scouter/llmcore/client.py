@@ -30,6 +30,8 @@ class ChatCompletionOptions(TypedDict, total=False):
         presence_penalty: Presence penalty (-2.0 to 2.0).
         stop: List of stop sequences.
         response_format: Response format specification.
+        api_key: Client API key
+        base_url: Base Url of Client
     """
 
     max_tokens: int
@@ -39,6 +41,8 @@ class ChatCompletionOptions(TypedDict, total=False):
     presence_penalty: float
     stop: list[str]
     response_format: dict
+    api_key: str | None
+    base_url: str | None
 
 
 @lru_cache(maxsize=1)
@@ -71,7 +75,6 @@ def call_llm(
     messages: list[ChatCompletionMessageParam],
     tools: Iterable[ChatCompletionToolUnionParam] | None = None,
     options: ChatCompletionOptions | None = None,
-    api_key: str | None = None,
 ) -> ChatCompletion:
     """Call the LLM with the given parameters.
 
@@ -90,12 +93,19 @@ def call_llm(
         tools_count,
     )
 
-    client = get_user_llm_client(api_key) if api_key else get_llm_client()
+    client = (
+        get_user_llm_client(options.get("api_key"), options.get("base_url"))
+        if options and options.get("api_key")
+        else get_llm_client()
+    )
 
     def _call():
         kwargs = options or {}
         return client.chat.completions.create(
-            model=model, messages=messages, tools=tools or [], **kwargs
+            model=model,
+            messages=messages,
+            tools=tools or [],
+            **kwargs,  # type: ignore[arg-type]
         )
 
     result = retry_loop(_call)
@@ -109,7 +119,6 @@ def structured_call_llm(
     output_model: type[BaseModel],
     tools: Iterable[ChatCompletionToolUnionParam] | None = None,
     options: ChatCompletionOptions | None = None,
-    api_key: str | None = None,
 ) -> BaseModel:
     """
     Call the LLM with structured output, returning a validated Pydantic model.
@@ -150,11 +159,18 @@ def structured_call_llm(
         output_model.__name__,
     )
 
-    client = get_user_llm_client(api_key) if api_key else get_llm_client()
+    client = (
+        get_user_llm_client(options.get("api_key"))
+        if options and options.get("api_key")
+        else get_llm_client()
+    )
 
     def _call():
-        return client.chat.completions.create(  # type: ignore[arg-type]
-            model=model, messages=messages, tools=tools or [], **kwargs
+        return client.chat.completions.create(
+            model=model,
+            messages=messages,
+            tools=tools or [],
+            **kwargs,  # type: ignore[arg-type]
         )
 
     completion = retry_loop(_call)

@@ -47,14 +47,6 @@ class DefaultAgentRuntimeSerializer:
         return deserialize_agent_runtime(data)
 
 
-# Global serializer instance
-agent_runtime_serializer = DefaultAgentRuntimeSerializer()
-
-
-def memory_persistence(run: AgentRuntime) -> None:
-    """Default persistence function: memory-only (no-op)."""
-
-
 def memory_trace(data: dict[str, Any]) -> None:
     """Default trace function: memory-only (no-op)."""
 
@@ -72,7 +64,9 @@ class AgentConfig:
     tools: list[str] | None = None  # Tool names
     memory_function: MemoryFunction = full_history_memory
     continue_condition: Callable[[AgentRuntime], bool] | None = None
-    persistence_function: Callable[[AgentRuntime], None] = memory_persistence
+    persistence: AgentRuntimeSerializer = field(
+        default_factory=(lambda: DefaultAgentRuntimeSerializer())
+    )
     tracing_enabled: bool = False
     trace_function: Callable[[dict[str, Any]], None] = memory_trace
     api_key: str | None = None
@@ -138,16 +132,14 @@ class AgentRuntime:
 
     def save(self) -> None:
         """Save the agent run using the configured persistence function."""
-        self.config.persistence_function(self)
-
-    def to_dict(self) -> dict[str, Any]:
-        """Serialize the agent run to a dictionary."""
-        return agent_runtime_serializer.serialize(self)
+        self.config.persistence.serialize(self)
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> AgentRuntime:
-        """Deserialize an agent run from a dictionary."""
-        return agent_runtime_serializer.deserialize(data)
+    def load(cls, conf: AgentConfig, data: dict[str, Any]) -> AgentRuntime:
+        """Serialize the agent run to a dictionary."""
+        run = conf.persistence.deserialize(data)
+        run.config = conf
+        return run
 
     @property
     def tool_executions(self) -> list[ToolStep]:

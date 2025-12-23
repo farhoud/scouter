@@ -38,7 +38,6 @@ async def run_flow(
     options: ChatCompletionOptions | None = None,
     agent_id: str = "default",
     output_model: type[BaseModel] | None = None,
-    api_key: str | None = None,
 ):
     logger.info(
         "Starting agent run with model=%s, initial_flows=%d", model, len(run.flows)
@@ -51,10 +50,10 @@ async def run_flow(
         context = run.get_context()
         if output_model:
             completion = structured_call_llm(
-                model, context, output_model, tools, options, api_key
+                model, context, output_model, tools, options
             )
         else:
-            completion = call_llm(model, context, tools, options, api_key)
+            completion = call_llm(model, context, tools, options)
         step = LLMStep(completion=completion)
         current_flow.add_step(step)
 
@@ -195,7 +194,6 @@ async def run_agent(
         tools=tools,
         options=ChatCompletionOptions(**flow_options),
         output_model=output_model,
-        api_key=config.api_key,
     )
 
     return agent
