@@ -2,7 +2,8 @@
 
 import time
 from dataclasses import dataclass, field
-from typing import cast
+from typing import Any, Protocol, cast
+from uuid import uuid4
 
 from pydantic import BaseModel
 
@@ -68,7 +69,7 @@ Step = LLMStep | ToolStep | InputStep
 
 @dataclass
 class Flow:
-    id: str
+    id: str = field(default_factory=lambda: str(uuid4()))
     agent_id: str = "default"
     steps: list[Step] = field(default_factory=list)
     status: str = "pending"
@@ -91,3 +92,33 @@ class Flow:
         self.status = "failed"
         self.metadata["error"] = error
         self.metadata["end_time"] = time.time()
+
+
+@dataclass
+class State:
+    id: str = field(default_factory=lambda: str(uuid4()))
+    flows: list[Flow] = field(default_factory=list)
+
+
+class StateStore(Protocol):
+    """Protocol for AgentRuntime serialization/deserialization."""
+
+    def store(self, state: State) -> bool:
+        """Serialize State"""
+        ...
+
+    def load(self, query: dict[str, Any]) -> State:
+        """Deserialize an AgentRuntime from a dictionary."""
+        ...
+
+
+class DefaultStateStore:
+    """Default implementation of AgentRuntime serialization."""
+
+    def store(self, state: State) -> bool:
+        """Serialize an AgentRuntime to a dictionary."""
+        return True
+
+    def load(self, query: dict[str, Any]) -> State:
+        """Deserialize an AgentRuntime from a dictionary."""
+        return State()
